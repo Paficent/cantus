@@ -1,0 +1,29 @@
+# OSX
+.DS_Store
+__MACOSX/
+.AppleDouble
+.LSOverride
+._*
+
+#Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ETC
+node_modules
+dist
+*.local

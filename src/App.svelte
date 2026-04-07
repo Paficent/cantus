@@ -1,0 +1,21 @@
+<script lang="ts">
+  import { Sidebar } from "$lib/components/layout";
+  import { ModsTab, LogsTab, PlaceholderTab } from "$lib/components/tabs";
+  import { navStore } from "$lib/stores/nav.svelte";
+</script>
+
+<div class="flex h-screen overflow-hidden select-none">
+  <Sidebar />
+
+  <main class="flex-1 p-6 overflow-hidden">
+    {#if navStore.active === "mods"}
+      <ModsTab />
+    {:else if navStore.active === "browse"}
+      <PlaceholderTab title="Browse mods" description="GameBanana integration coming soon" />
+    {:else if navStore.active === "settings"}
+      <PlaceholderTab title="Settings" description="Jeode configuration" />
+    {:else if navStore.active === "logs"}
+      <LogsTab />
+    {/if}
+  </main>
+</div>
