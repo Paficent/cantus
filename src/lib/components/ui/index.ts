@@ -4,3 +4,5 @@ export { Button } from "./button";
 export { Input } from "./input";
 export { Select } from "./select";
 export { AlertDialog } from "./alert-dialog";
+export { Card } from "./card";
+export { Skeleton } from "./skeleton";

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Sidebar } from "$lib/components/layout";
-  import { ModsTab, LogsTab, PlaceholderTab } from "$lib/components/tabs";
+  import { ModsTab, BrowseTab, LogsTab, PlaceholderTab } from "$lib/components/tabs";
   import { navStore } from "$lib/stores/nav.svelte";
 </script>
 
@@ -11,7 +11,7 @@
     {#if navStore.active === "mods"}
       <ModsTab />
     {:else if navStore.active === "browse"}
-      <PlaceholderTab title="Browse mods" description="GameBanana integration coming soon" />
+      <BrowseTab />
     {:else if navStore.active === "settings"}
       <PlaceholderTab title="Settings" description="Jeode configuration" />
     {:else if navStore.active === "logs"}

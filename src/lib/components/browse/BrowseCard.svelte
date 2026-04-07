@@ -1,0 +1,76 @@
+<script lang="ts">
+  import * as Card from "$lib/components/ui/card";
+  import { Badge } from "$lib/components/ui/badge";
+  import Button from "$lib/components/ui/button/button.svelte";
+  import { Download, Eye, Heart, Loader2 } from "lucide-svelte";
+  import type { BrowseMod } from "$lib/types/browse";
+
+  interface Props {
+    mod: BrowseMod;
+    installing: boolean;
+    oninstall: (id: number) => void;
+  }
+
+  let { mod, installing, oninstall }: Props = $props();
+
+  function fmt(n: number): string {
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
+    return n.toString();
+  }
+</script>
+
+<Card.Root class="relative pt-0 transition-colors hover:border-foreground/20">
+  <div class="relative">
+    <img
+      src={mod.screenshot}
+      alt={mod.name}
+      class="aspect-video w-full object-cover"
+      loading="lazy"
+    />
+    <div class="absolute top-2 left-2">
+      <Badge variant="secondary" class="bg-background/80 backdrop-blur-sm text-[11px]">
+        {mod.category}
+      </Badge>
+    </div>
+  </div>
+
+  <Card.Header>
+    <Card.Title class="truncate">{mod.name}</Card.Title>
+    <Card.Description>{mod.author}</Card.Description>
+  </Card.Header>
+
+  <Card.Content class="pt-0">
+    <div class="flex items-center gap-3 text-[11px] text-muted-foreground">
+      <span class="flex items-center gap-1">
+        <Eye class="size-3" />
+        {fmt(mod.views)}
+      </span>
+      <span class="flex items-center gap-1">
+        <Heart class="size-3" />
+        {fmt(mod.likes)}
+      </span>
+      <span class="flex items-center gap-1">
+        <Download class="size-3" />
+        {fmt(mod.downloads)}
+      </span>
+    </div>
+  </Card.Content>
+
+  <Card.Footer>
+    <Button
+      variant="outline"
+      size="sm"
+      class="w-full"
+      disabled={installing}
+      onclick={() => oninstall(mod.id)}
+    >
+      {#if installing}
+        <Loader2 class="size-3.5 animate-spin" />
+        Installing...
+      {:else}
+        <Download class="size-3.5" />
+        Install
+      {/if}
+    </Button>
+  </Card.Footer>
+</Card.Root>
