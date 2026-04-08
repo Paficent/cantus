@@ -49,7 +49,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: install frontend dependencies
-        run: yarn install
+        run: npm install
 
       - uses: tauri-apps/tauri-action@v0
         env:
