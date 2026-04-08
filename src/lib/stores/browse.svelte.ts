@@ -20,7 +20,12 @@ class BrowseStore {
 
     await new Promise((r) => setTimeout(r, 400));
 
-    const result = getMockPage(this.page, this.search, this.categoryFilter, this.sort);
+    const result = getMockPage(
+      this.page,
+      this.search,
+      this.categoryFilter,
+      this.sort,
+    );
 
     this.items = [...this.items, ...result.items];
     this.hasMore = result.hasMore;

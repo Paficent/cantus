@@ -29,6 +29,14 @@ impl From<reqwest::Error> for AppError {
     }
 }
 
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        Self {
+            message: err.to_string(),
+        }
+    }
+}
+
 impl From<String> for AppError {
     fn from(message: String) -> Self {
         Self { message }

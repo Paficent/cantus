@@ -247,10 +247,18 @@ export const MOCK_BROWSE_MODS: BrowseMod[] = [
 
 const PAGE_SIZE = 8;
 
-export function getMockPage(page: number, search: string, category: string, sort: string): { items: BrowseMod[]; hasMore: boolean } {
+export function getMockPage(
+  page: number,
+  search: string,
+  category: string,
+  sort: string,
+): { items: BrowseMod[]; hasMore: boolean } {
   let filtered = MOCK_BROWSE_MODS.filter((mod) => {
     const q = search.toLowerCase();
-    const matchesSearch = !q || mod.name.toLowerCase().includes(q) || mod.author.toLowerCase().includes(q);
+    const matchesSearch =
+      !q ||
+      mod.name.toLowerCase().includes(q) ||
+      mod.author.toLowerCase().includes(q);
     const matchesCategory = category === "all" || mod.category === category;
     return matchesSearch && matchesCategory;
   });
