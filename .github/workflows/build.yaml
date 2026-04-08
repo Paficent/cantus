@@ -1,25 +1,43 @@
-# no cross compilation :(
-name: Build
+name: Release
+
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    tags:
+      - "v*"
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: lts/*
+
       - uses: dtolnay/rust-toolchain@stable
+
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
       - run: npm ci
-      - run: npx tauri build
-      - uses: actions/upload-artifact@v4
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: cantus-windows
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          tagName: ${{ github.ref_name }}
+          releaseName: "Cantus ${{ github.ref_name }}"
+          releaseBody: ""
+          releaseDraft: true
+          generateReleaseNotes: true
+          updaterJsonPreferNsis: true
