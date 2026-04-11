@@ -84,16 +84,45 @@ fn extract_rar(archive_path: &Path, dest: &Path) -> AppResult<()> {
 }
 
 fn find_mod_root(extracted: &Path) -> PathBuf {
-    let entries: Vec<_> = std::fs::read_dir(extracted)
-        .into_iter()
-        .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
-        .collect();
-
-    if entries.len() == 1 && entries[0].path().is_dir() {
-        entries[0].path()
+    // Recursively search for a manifest.json; if found, its parent is the mod root.
+    if let Some(manifest) = find_manifest_recursive(extracted) {
+        manifest
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| extracted.to_path_buf())
     } else {
-        extracted.to_path_buf()
+        // No manifest found – fall back to unwrapping a single wrapper directory.
+        let entries: Vec<_> = std::fs::read_dir(extracted)
+            .into_iter()
+            .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
+            .collect();
+
+        if entries.len() == 1 && entries[0].path().is_dir() {
+            entries[0].path()
+        } else {
+            extracted.to_path_buf()
+        }
     }
+}
+
+/// Walk the directory tree and return the path to the first `manifest.json` found.
+fn find_manifest_recursive(dir: &Path) -> Option<PathBuf> {
+    let manifest = dir.join("manifest.json");
+    if manifest.exists() {
+        return Some(manifest);
+    }
+    let mut entries: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
+    // Sort for deterministic results when multiple subdirs exist.
+    entries.sort_by_key(|e| e.file_name());
+    for entry in entries {
+        let path = entry.path();
+        if path.is_dir() {
+            if let Some(found) = find_manifest_recursive(&path) {
+                return Some(found);
+            }
+        }
+    }
+    None
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> AppResult<()> {
