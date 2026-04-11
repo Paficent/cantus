@@ -8,6 +8,7 @@ class ModStore {
   typeFilter = $state<TypeFilter>("all");
   statusFilter = $state<StatusFilter>("all");
   loading = $state(false);
+  installing = $state(false);
   private watching = false;
 
   readonly filtered = $derived(
@@ -79,6 +80,20 @@ class ModStore {
       await invoke("open_mod_folder", { id });
     } catch (e) {
       console.error("Failed to open mod folder:", e);
+    }
+  }
+
+  async install(): Promise<string | null> {
+    this.installing = true;
+    try {
+      const name = await invoke<string | null>("install_mod");
+      if (name) await this.load();
+      return name;
+    } catch (e) {
+      console.error("Failed to install mod:", e);
+      throw e;
+    } finally {
+      this.installing = false;
     }
   }
 

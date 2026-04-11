@@ -4,7 +4,7 @@
     import * as AlertDialog from "$lib/components/ui/alert-dialog";
     import { ModEntry } from "$lib/components/mods";
     import { modStore } from "$lib/stores/mods.svelte";
-    import { RefreshCw, Search, Puzzle, Loader2 } from "lucide-svelte";
+    import { RefreshCw, Search, Puzzle, Loader2, Download } from "lucide-svelte";
     import type { Mod, TypeFilter, StatusFilter } from "$lib/types/mod";
 
     let removeTarget = $state<Mod | null>(null);
@@ -34,10 +34,31 @@
                 {modStore.enabledCount} of {modStore.totalCount} enabled
             </p>
         </div>
-        <Button variant="outline" size="sm" onclick={() => modStore.load()}>
-            <RefreshCw class="size-3.5" />
-            Refresh
-        </Button>
+        <div class="flex items-center gap-2">
+            <Button variant="outline" size="sm" onclick={() => modStore.load()}>
+                <RefreshCw class="size-3.5" />
+                Refresh
+            </Button>
+            <Button
+                size="sm"
+                disabled={modStore.installing}
+                onclick={async () => {
+                    try {
+                        await modStore.install();
+                    } catch {
+                        // handled by store
+                    }
+                }}
+            >
+                {#if modStore.installing}
+                    <Loader2 class="size-3.5 animate-spin" />
+                    Installing...
+                {:else}
+                    <Download class="size-3.5" />
+                    Install mod
+                {/if}
+            </Button>
+        </div>
     </div>
 
     <div class="flex gap-2 mb-3">

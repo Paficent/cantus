@@ -81,7 +81,7 @@ fn detect_type(manifest: &Manifest, mod_path: &Path) -> String {
     "asset".into()
 }
 
-fn sanitize_id(raw: &str) -> String {
+pub fn sanitize_id(raw: &str) -> String {
     let out: String = raw
         .chars()
         .filter_map(|c| {
@@ -116,7 +116,7 @@ fn read_manifest(mod_path: &Path, dir_name: &str) -> AppResult<Manifest> {
     Ok(manifest)
 }
 
-fn default_manifest() -> Manifest {
+pub fn default_manifest() -> Manifest {
     Manifest {
         id: "unknown".into(),
         name: "Unknown".into(),
@@ -222,7 +222,7 @@ fn find_mod_dir(game_dir: &Path, mod_id: &str) -> AppResult<PathBuf> {
     Err(AppError::from(format!("Mod '{mod_id}' not found")))
 }
 
-fn write_manifest(path: &Path, manifest: &Manifest) -> AppResult<()> {
+pub fn write_manifest(path: &Path, manifest: &Manifest) -> AppResult<()> {
     let content = serde_json::to_string_pretty(manifest)?;
     std::fs::write(path, content + "\n")?;
     Ok(())

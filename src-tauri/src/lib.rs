@@ -21,6 +21,7 @@ pub fn run() {
             mods::remove_mod,
             mods::open_mod_folder,
             mods::watch_mods_folder,
+            mods::install_mod,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

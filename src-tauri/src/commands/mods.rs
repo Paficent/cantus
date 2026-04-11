@@ -1,4 +1,5 @@
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
 
 use crate::errors::AppError;
 use crate::services::mods::{self, ModInfo};
@@ -47,4 +48,30 @@ pub async fn watch_mods_folder(
     let dir = game_dir(&state)?;
     let mods_dir = dir.join("mods");
     crate::services::watcher::start(app, mods_dir)
+}
+
+#[tauri::command]
+pub async fn install_mod(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, AppError> {
+    let dir = game_dir(&state)?;
+
+    let file = app
+        .dialog()
+        .file()
+        .set_title("Select mod archive")
+        .add_filter("Mod Archives", &["zip", "7z", "rar"])
+        .blocking_pick_file();
+
+    match file {
+        Some(file_path) => {
+            let path = file_path
+                .into_path()
+                .map_err(|_| AppError::from("Invalid file path selected"))?;
+            let name = crate::services::installer::install(&path, &dir)?;
+            Ok(Some(name))
+        }
+        None => Ok(None),
+    }
 }
