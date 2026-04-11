@@ -84,14 +84,12 @@ fn extract_rar(archive_path: &Path, dest: &Path) -> AppResult<()> {
 }
 
 fn find_mod_root(extracted: &Path) -> PathBuf {
-    // Recursively search for a manifest.json; if found, its parent is the mod root.
     if let Some(manifest) = find_manifest_recursive(extracted) {
         manifest
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| extracted.to_path_buf())
     } else {
-        // No manifest found – fall back to unwrapping a single wrapper directory.
         let entries: Vec<_> = std::fs::read_dir(extracted)
             .into_iter()
             .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
@@ -105,14 +103,12 @@ fn find_mod_root(extracted: &Path) -> PathBuf {
     }
 }
 
-/// Walk the directory tree and return the path to the first `manifest.json` found.
 fn find_manifest_recursive(dir: &Path) -> Option<PathBuf> {
     let manifest = dir.join("manifest.json");
     if manifest.exists() {
         return Some(manifest);
     }
     let mut entries: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
-    // Sort for deterministic results when multiple subdirs exist.
     entries.sort_by_key(|e| e.file_name());
     for entry in entries {
         let path = entry.path();
@@ -209,6 +205,32 @@ fn install_native_jeode_mod(root: &Path, mods_dir: &Path) -> AppResult<String> {
     Ok(name)
 }
 
+/// true = no 'data/' but subdirectories map to actual data subdirectories (gfx, etc.)
+fn looks_like_data_contents(mod_root: &Path, game_dir: &Path) -> bool {
+    let game_data = game_dir.join("data");
+    if !game_data.is_dir() {
+        return false;
+    }
+
+    let mod_dirs: Vec<_> = std::fs::read_dir(mod_root)
+        .into_iter()
+        .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
+        .filter(|e| e.path().is_dir())
+        .collect();
+
+    if mod_dirs.is_empty() {
+        return false;
+    }
+
+    let matching = mod_dirs
+        .iter()
+        .filter(|e| game_data.join(e.file_name()).is_dir())
+        .count();
+
+    // If at least half of the mod's directories exist inside data
+    matching > 0 && matching * 2 >= mod_dirs.len()
+}
+
 fn install_rebuilt_mod(
     archive_path: &Path,
     root: &Path,
@@ -226,6 +248,9 @@ fn install_rebuilt_mod(
 
     if root.join("data").is_dir() {
         copy_dir_recursive(root, &mod_dir)?;
+    } else if looks_like_data_contents(root, game_dir) {
+        let dest_data = mod_dir.join("data");
+        copy_dir_recursive(root, &dest_data)?;
     } else {
         let game_data = game_dir.join("data");
         let index = build_game_file_index(&game_data)?;
@@ -270,6 +295,10 @@ fn install_rebuilt_mod(
     let manifest = mods::Manifest {
         id: mod_id,
         name: raw_name.clone(),
+        assets: mods::ManifestAssets {
+            auto_override: true,
+            ..Default::default()
+        },
         ..mods::default_manifest()
     };
     mods::write_manifest(&mod_dir.join("manifest.json"), &manifest)?;
