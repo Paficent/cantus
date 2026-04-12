@@ -3,8 +3,27 @@
     import Input from "$lib/components/ui/input/input.svelte";
     import { LogEntry } from "$lib/components/logs";
     import { logStore } from "$lib/stores/logs.svelte";
-    import { Search, Trash2, ScrollText } from "lucide-svelte";
-    import type { LevelFilter } from "$lib/types/log";
+    import {
+        Search,
+        Trash2,
+        ScrollText,
+        Loader2,
+        RefreshCw,
+        Clipboard,
+    } from "lucide-svelte";
+    import type { LevelFilter } from "$lib/types/logs";
+
+    let copied = $state(false);
+
+    $effect(() => {
+        logStore.load();
+    });
+
+    function handleCopy() {
+        logStore.copyToClipboard();
+        copied = true;
+        setTimeout(() => (copied = false), 1500);
+    }
 </script>
 
 <div class="flex flex-col h-full">
@@ -19,10 +38,33 @@
                 </span>
             </p>
         </div>
-        <Button variant="outline" size="sm" onclick={() => logStore.clear()}>
-            <Trash2 class="size-3.5" />
-            Clear
-        </Button>
+        <div class="flex items-center gap-1.5">
+            <Button
+                variant="outline"
+                size="sm"
+                onclick={() => logStore.load()}
+                disabled={logStore.loading}
+            >
+                {#if logStore.loading}
+                    <Loader2 class="size-3.5 animate-spin" />
+                {:else}
+                    <RefreshCw class="size-3.5" />
+                {/if}
+                Refresh
+            </Button>
+            <Button variant="outline" size="sm" onclick={handleCopy}>
+                <Clipboard class="size-3.5" />
+                {copied ? "Copied" : "Copy"}
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                onclick={() => logStore.clear()}
+            >
+                <Trash2 class="size-3.5" />
+                Clear
+            </Button>
+        </div>
     </div>
 
     <div class="flex gap-2 mb-3">
@@ -55,24 +97,17 @@
             <option value="warn">Warn</option>
             <option value="error">Error</option>
         </select>
-        <select
-            class="flex h-9 w-[140px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            value={logStore.sourceFilter}
-            onchange={(e) => {
-                logStore.sourceFilter = (
-                    e.currentTarget as HTMLSelectElement
-                ).value;
-            }}
-        >
-            <option value="all">All sources</option>
-            {#each logStore.sources as source}
-                <option value={source}>{source}</option>
-            {/each}
-        </select>
     </div>
 
     <div class="flex-1 rounded-lg border border-border bg-card overflow-y-auto">
-        {#if logStore.filtered.length > 0}
+        {#if logStore.loading}
+            <div
+                class="flex flex-col items-center justify-center py-16 text-muted-foreground"
+            >
+                <Loader2 class="size-10 mb-3 opacity-30 animate-spin" />
+                <p class="text-sm">Loading logs...</p>
+            </div>
+        {:else if logStore.filtered.length > 0}
             {#each logStore.filtered as entry, i (i)}
                 <LogEntry {entry} />
             {/each}
@@ -83,7 +118,7 @@
                 <ScrollText class="size-10 mb-3 opacity-30" />
                 <p class="text-sm">No log entries</p>
                 <p class="text-xs mt-1">
-                    {#if logStore.search || logStore.levelFilter !== "all" || logStore.sourceFilter !== "all"}
+                    {#if logStore.search || logStore.levelFilter !== "all"}
                         Try adjusting your filters
                     {:else}
                         Logs will appear here during runtime

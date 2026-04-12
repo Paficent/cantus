@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { OnboardingStep, JeodeStatus } from "$lib/types/setup";
 
+interface Settings {
+  game_directory: string | null;
+  onboarding_complete: boolean;
+}
+
 class SetupStore {
   step = $state<OnboardingStep>("directory");
   gameDirectory = $state("");
@@ -9,6 +14,38 @@ class SetupStore {
   jeodeStatus = $state<JeodeStatus>("unknown");
   complete = $state(false);
   error = $state("");
+  loaded = $state(false);
+
+  async loadSettings() {
+    try {
+      const settings = await invoke<Settings>("load_settings");
+
+      if (settings.onboarding_complete && settings.game_directory) {
+        this.gameDirectory = settings.game_directory;
+        this.directoryValid = true;
+        this.complete = true;
+      } else if (settings.game_directory) {
+        this.gameDirectory = settings.game_directory;
+      }
+    } catch (e) {
+      console.error("Failed to load settings:", e);
+    } finally {
+      this.loaded = true;
+    }
+  }
+
+  private async persistSettings() {
+    try {
+      await invoke("save_settings", {
+        settings: {
+          game_directory: this.gameDirectory || null,
+          onboarding_complete: this.complete,
+        },
+      });
+    } catch (e) {
+      console.error("Failed to save settings:", e);
+    }
+  }
 
   async browseGameDirectory() {
     this.error = "";
@@ -84,8 +121,9 @@ class SetupStore {
     }
   }
 
-  finishOnboarding() {
+  async finishOnboarding() {
     this.complete = true;
+    await this.persistSettings();
   }
 
   goBack() {

@@ -3,7 +3,7 @@ mod errors;
 mod services;
 mod state;
 
-use commands::{mods, onboarding};
+use commands::{logs, mods, onboarding, settings};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -22,6 +22,9 @@ pub fn run() {
             mods::open_mod_folder,
             mods::watch_mods_folder,
             mods::install_mod,
+            settings::load_settings,
+            settings::save_settings,
+            logs::read_log_file,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

@@ -9,9 +9,17 @@
     import { Onboarding } from "$lib/components/onboarding";
     import { navStore } from "$lib/stores/nav.svelte";
     import { setupStore } from "$lib/stores/setup.svelte";
+
+    $effect(() => {
+        setupStore.loadSettings();
+    });
 </script>
 
-{#if !setupStore.complete}
+{#if !setupStore.loaded}
+    <div class="flex h-screen items-center justify-center select-none">
+        <p class="text-sm text-muted-foreground">Loading...</p>
+    </div>
+{:else if !setupStore.complete}
     <Onboarding />
 {:else}
     <div class="flex h-screen overflow-hidden select-none">

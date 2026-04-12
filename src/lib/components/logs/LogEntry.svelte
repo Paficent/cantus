@@ -1,5 +1,5 @@
 <script lang="ts">
-    import type { LogEntry } from "$lib/types/log";
+    import type { LogEntry } from "$lib/types/logs";
 
     interface Props {
         entry: LogEntry;

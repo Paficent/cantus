@@ -1,4 +1,5 @@
 export { default as ModsTab } from "./ModsTab.svelte";
 export { default as BrowseTab } from "./BrowseTab.svelte";
 export { default as LogsTab } from "./LogsTab.svelte";
+export { default as SettingsTab } from "./SettingsTab.svelte";
 export { default as PlaceholderTab } from "./PlaceholderTab.svelte";
