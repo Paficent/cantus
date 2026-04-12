@@ -233,7 +233,7 @@
                         <Wrench class="size-4 text-muted-foreground" />
                         <Card.Title>Jeode</Card.Title>
                     </div>
-                    <Card.Description>Mod loader settings</Card.Description>
+                    <Card.Description>Loader settings</Card.Description>
                 </Card.Header>
                 <Card.Content class="space-y-4">
                     <div class="flex items-center justify-between gap-4">
