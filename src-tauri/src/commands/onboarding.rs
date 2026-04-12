@@ -31,6 +31,30 @@ pub async fn select_game_directory(app: tauri::AppHandle) -> Result<Option<Strin
 }
 
 #[tauri::command]
+pub async fn detect_game_directory() -> Result<Option<String>, AppError> {
+    Ok(game::detect().map(|p| p.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+pub async fn browse_game_directory(app: tauri::AppHandle) -> Result<Option<String>, AppError> {
+    let folder = app
+        .dialog()
+        .file()
+        .set_title("Select My Singing Monsters directory")
+        .blocking_pick_folder();
+
+    match folder {
+        Some(file_path) => {
+            let path = file_path
+                .into_path()
+                .map_err(|_| AppError::from("Invalid path selected"))?;
+            Ok(Some(path.to_string_lossy().into_owned()))
+        }
+        None => Ok(None),
+    }
+}
+
+#[tauri::command]
 pub async fn validate_game_directory(
     path: String,
     state: State<'_, AppState>,
@@ -54,4 +78,12 @@ pub async fn check_jeode_installed(game_dir: String) -> Result<bool, AppError> {
 #[tauri::command]
 pub async fn install_jeode(game_dir: String) -> Result<(), AppError> {
     jeode::install(&PathBuf::from(game_dir)).await
+}
+
+const STEAM_LAUNCH_URL: &str = "steam://run/1419170";
+
+#[tauri::command]
+pub async fn launch_game() -> Result<(), AppError> {
+    tauri_plugin_opener::open_url(STEAM_LAUNCH_URL, None::<&str>)
+        .map_err(|e| AppError::from(format!("Failed to launch game: {e}")))
 }

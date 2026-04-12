@@ -1,6 +1,8 @@
 <script lang="ts">
+    import { onMount } from "svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import Input from "$lib/components/ui/input/input.svelte";
+    import * as Select from "$lib/components/ui/select";
     import { LogEntry } from "$lib/components/logs";
     import { logStore } from "$lib/stores/logs.svelte";
     import {
@@ -10,13 +12,33 @@
         Loader2,
         RefreshCw,
         Clipboard,
+        CircleAlert,
     } from "lucide-svelte";
     import type { LevelFilter } from "$lib/types/logs";
 
     let copied = $state(false);
 
-    $effect(() => {
+    const levelLabels: Record<LevelFilter, string> = {
+        all: "All levels",
+        info: "Info",
+        debug: "Debug",
+        warn: "Warn",
+        error: "Error",
+    };
+    let scrollContainer = $state<HTMLElement | null>(null);
+
+    onMount(() => {
         logStore.load();
+        logStore.startWatching();
+    });
+
+    $effect(() => {
+        logStore.filtered.length;
+        if (scrollContainer) {
+            requestAnimationFrame(() => {
+                scrollContainer!.scrollTop = scrollContainer!.scrollHeight;
+            });
+        }
     });
 
     function handleCopy() {
@@ -83,23 +105,27 @@
                 class="pl-8"
             />
         </div>
-        <select
-            class="flex h-9 w-[120px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        <Select.Root
+            type="single"
             value={logStore.levelFilter}
-            onchange={(e) => {
-                logStore.levelFilter = (e.currentTarget as HTMLSelectElement)
-                    .value as LevelFilter;
+            onValueChange={(v) => {
+                if (v) logStore.levelFilter = v as LevelFilter;
             }}
         >
-            <option value="all">All levels</option>
-            <option value="info">Info</option>
-            <option value="debug">Debug</option>
-            <option value="warn">Warn</option>
-            <option value="error">Error</option>
-        </select>
+            <Select.Trigger class="w-[120px]">
+                {levelLabels[logStore.levelFilter]}
+            </Select.Trigger>
+            <Select.Content>
+                <Select.Item value="all">All levels</Select.Item>
+                <Select.Item value="info">Info</Select.Item>
+                <Select.Item value="debug">Debug</Select.Item>
+                <Select.Item value="warn">Warn</Select.Item>
+                <Select.Item value="error">Error</Select.Item>
+            </Select.Content>
+        </Select.Root>
     </div>
 
-    <div class="flex-1 rounded-lg border border-border bg-card overflow-y-auto">
+    <div bind:this={scrollContainer} class="flex-1 rounded-lg border border-border bg-card overflow-y-auto">
         {#if logStore.loading}
             <div
                 class="flex flex-col items-center justify-center py-16 text-muted-foreground"
@@ -111,6 +137,16 @@
             {#each logStore.filtered as entry, i (i)}
                 <LogEntry {entry} />
             {/each}
+        {:else if logStore.error}
+            <div
+                class="flex flex-col items-center justify-center py-16 text-muted-foreground"
+            >
+                <CircleAlert class="size-10 mb-3 opacity-30 text-destructive" />
+                <p class="text-sm">Failed to load logs</p>
+                <p class="text-xs mt-1 font-mono text-destructive/70 max-w-md text-center">
+                    {logStore.error}
+                </p>
+            </div>
         {:else}
             <div
                 class="flex flex-col items-center justify-center py-16 text-muted-foreground"

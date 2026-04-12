@@ -1,6 +1,9 @@
+//TODO: rename this to just jeode watcher
+
+use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::Emitter;
@@ -22,20 +25,25 @@ pub fn start(app: tauri::AppHandle, jeode_dir: PathBuf) -> AppResult<()> {
         tx,
         notify::Config::default().with_poll_interval(Duration::from_secs(2)),
     )
-    .map_err(|e| crate::errors::AppError::from(format!("Failed to create log watcher: {e}")))?;
+    .map_err(|e| crate::errors::AppError::from(format!("Failed to create jeode watcher: {e}")))?;
 
     std::fs::create_dir_all(&jeode_dir).ok();
 
     watcher
         .watch(&jeode_dir, RecursiveMode::NonRecursive)
-        .map_err(|e| crate::errors::AppError::from(format!("Failed to watch log file: {e}")))?;
+        .map_err(|e| crate::errors::AppError::from(format!("Failed to watch jeode dir: {e}")))?;
 
     std::thread::spawn(move || {
         let _watcher = watcher;
-        let log_name = std::ffi::OsStr::new("latest.log");
-        let mut last_emit = std::time::Instant::now()
+        let log_name = OsStr::new("latest.log");
+        let settings_name = OsStr::new("config.json");
+
+        let epoch = Instant::now()
             .checked_sub(Duration::from_secs(1))
-            .unwrap_or_else(std::time::Instant::now);
+            .unwrap_or_else(Instant::now);
+
+        let mut last_log_emit = epoch;
+        let mut last_settings_emit = epoch;
 
         while let Ok(result) = rx.recv() {
             let event = match result {
@@ -43,22 +51,24 @@ pub fn start(app: tauri::AppHandle, jeode_dir: PathBuf) -> AppResult<()> {
                 Err(_) => continue,
             };
 
-            let touches_log = event
-                .paths
-                .iter()
-                .any(|p| p.file_name() == Some(log_name));
+            let now = Instant::now();
 
-            if !touches_log {
-                continue;
+            let touches_log = event.paths.iter().any(|p| p.file_name() == Some(log_name));
+            let touches_settings =
+                event.paths.iter().any(|p| p.file_name() == Some(settings_name));
+
+            if touches_log && now.duration_since(last_log_emit) >= Duration::from_millis(DEBOUNCE_MS)
+            {
+                last_log_emit = now;
+                let _ = app.emit("log-changed", ());
             }
 
-            let now = std::time::Instant::now();
-            if now.duration_since(last_emit) < Duration::from_millis(DEBOUNCE_MS) {
-                continue;
+            if touches_settings
+                && now.duration_since(last_settings_emit) >= Duration::from_millis(DEBOUNCE_MS)
+            {
+                last_settings_emit = now;
+                let _ = app.emit("jeode-settings-changed", ());
             }
-
-            last_emit = now;
-            let _ = app.emit("log-changed", ());
         }
 
         WATCHING.store(false, Ordering::SeqCst);

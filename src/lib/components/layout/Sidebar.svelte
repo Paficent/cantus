@@ -1,7 +1,9 @@
 <script lang="ts">
     import { navStore, type Tab } from "$lib/stores/nav.svelte";
     import { modStore } from "$lib/stores/mods.svelte";
-    import { Puzzle, Download, Settings, ScrollText } from "lucide-svelte";
+    import Button from "$lib/components/ui/button/button.svelte";
+    import { Puzzle, Download, Settings, ScrollText, Play } from "lucide-svelte";
+    import { invoke } from "@tauri-apps/api/core";
     import type { Component } from "svelte";
 
     interface NavItem {
@@ -18,7 +20,7 @@
     ];
 </script>
 
-<div class="w-[200px] border-r border-border flex flex-col bg-card shrink-0">
+<div class="w-[150px] border-r border-border flex flex-col bg-card shrink-0">
     <div class="px-4 py-4 border-b border-border">
         <div class="flex items-center gap-2.5">
             <div
@@ -35,10 +37,11 @@
 
     <nav class="flex-1 p-2">
         {#each items as item}
-            <button
-                class="w-full flex items-center gap-2.5 px-3 py-2 rounded-md text-sm mb-0.5 transition-colors cursor-pointer
+            <Button
+                variant="ghost"
+                class="w-full justify-start gap-2.5 px-3 py-2 h-auto text-sm mb-0.5
           {navStore.active === item.id
-                    ? 'bg-accent text-accent-foreground font-medium'
+                    ? 'bg-accent text-accent-foreground font-medium hover:bg-accent'
                     : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'}"
                 onclick={() => {
                     navStore.active = item.id;
@@ -56,16 +59,18 @@
                         {modStore.enabledCount}/{modStore.totalCount}
                     </span>
                 {/if}
-            </button>
+            </Button>
         {/each}
     </nav>
 
-    <div class="px-4 py-3 border-t border-border">
-        <p class="text-[10px] text-muted-foreground/50 leading-relaxed">
-            Jeode v5.3.2.3
-        </p>
-        <p class="text-[10px] text-muted-foreground/50 leading-relaxed">
-            Game v5.3.2
-        </p>
+    <div class="p-2 border-t border-border">
+        <Button
+            class="w-full justify-start gap-2.5"
+            size="sm"
+            onclick={() => invoke("launch_game")}
+        >
+            <Play class="size-3.5" />
+            Launch MSM
+        </Button>
     </div>
 </div>

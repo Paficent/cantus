@@ -2,10 +2,18 @@
     import Button from "$lib/components/ui/button/button.svelte";
     import Input from "$lib/components/ui/input/input.svelte";
     import * as AlertDialog from "$lib/components/ui/alert-dialog";
+    import * as Select from "$lib/components/ui/select";
     import { ModEntry } from "$lib/components/mods";
     import { modStore } from "$lib/stores/mods.svelte";
     import { RefreshCw, Search, Puzzle, Loader2, Download } from "lucide-svelte";
     import type { Mod, TypeFilter, StatusFilter } from "$lib/types/mod";
+
+    const typeLabels: Record<TypeFilter, string> = {
+        all: "All types", native: "Native", lua: "Lua", asset: "Asset",
+    };
+    const statusLabels: Record<StatusFilter, string> = {
+        all: "All status", enabled: "Enabled", disabled: "Disabled",
+    };
 
     let removeTarget = $state<Mod | null>(null);
 
@@ -77,31 +85,39 @@
                 class="pl-8"
             />
         </div>
-        <select
-            class="flex h-9 w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        <Select.Root
+            type="single"
             value={modStore.typeFilter}
-            onchange={(e) => {
-                modStore.typeFilter = (e.currentTarget as HTMLSelectElement)
-                    .value as TypeFilter;
+            onValueChange={(v) => {
+                if (v) modStore.typeFilter = v as TypeFilter;
             }}
         >
-            <option value="all">All types</option>
-            <option value="native">Native</option>
-            <option value="lua">Lua</option>
-            <option value="asset">Asset</option>
-        </select>
-        <select
-            class="flex h-9 w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            <Select.Trigger class="w-[130px]">
+                {typeLabels[modStore.typeFilter]}
+            </Select.Trigger>
+            <Select.Content>
+                <Select.Item value="all">All types</Select.Item>
+                <Select.Item value="native">Native</Select.Item>
+                <Select.Item value="lua">Lua</Select.Item>
+                <Select.Item value="asset">Asset</Select.Item>
+            </Select.Content>
+        </Select.Root>
+        <Select.Root
+            type="single"
             value={modStore.statusFilter}
-            onchange={(e) => {
-                modStore.statusFilter = (e.currentTarget as HTMLSelectElement)
-                    .value as StatusFilter;
+            onValueChange={(v) => {
+                if (v) modStore.statusFilter = v as StatusFilter;
             }}
         >
-            <option value="all">All status</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
-        </select>
+            <Select.Trigger class="w-[130px]">
+                {statusLabels[modStore.statusFilter]}
+            </Select.Trigger>
+            <Select.Content>
+                <Select.Item value="all">All status</Select.Item>
+                <Select.Item value="enabled">Enabled</Select.Item>
+                <Select.Item value="disabled">Disabled</Select.Item>
+            </Select.Content>
+        </Select.Root>
     </div>
 
     <div class="flex-1 rounded-lg border border-border overflow-y-auto">

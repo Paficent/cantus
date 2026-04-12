@@ -14,10 +14,28 @@ pub async fn read_log_file(state: State<'_, AppState>) -> Result<String, AppErro
 
     let log_path = dir.join("jeode").join("latest.log");
 
-    if !log_path.exists() {
-        return Ok(String::new());
+    match tokio::fs::read(&log_path).await {
+        Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
+        Err(e) => Err(AppError::from(format!(
+            "Failed to read {}: {e}",
+            log_path.display()
+        ))),
     }
+}
 
-    std::fs::read_to_string(&log_path)
-        .map_err(|e| AppError::from(format!("Failed to read log file: {e}")))
+#[tauri::command]
+pub async fn watch_log_file(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), AppError> {
+    let dir = state
+        .game_directory
+        .lock()
+        .unwrap()
+        .clone()
+        .ok_or_else(|| AppError::from("Game directory not set"))?;
+
+    let jeode_dir = dir.join("jeode");
+    crate::services::log_watcher::start(app, jeode_dir)
 }

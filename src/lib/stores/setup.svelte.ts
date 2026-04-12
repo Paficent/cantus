@@ -4,6 +4,11 @@ import type { OnboardingStep, JeodeStatus } from "$lib/types/setup";
 interface Settings {
   game_directory: string | null;
   onboarding_complete: boolean;
+  theme?: string;
+}
+
+function applyTheme(theme: string) {
+  document.documentElement.classList.toggle("dark", theme !== "light");
 }
 
 class SetupStore {
@@ -19,6 +24,7 @@ class SetupStore {
   async loadSettings() {
     try {
       const settings = await invoke<Settings>("load_settings");
+      applyTheme(settings.theme ?? "dark");
 
       if (settings.onboarding_complete && settings.game_directory) {
         this.gameDirectory = settings.game_directory;
@@ -40,6 +46,8 @@ class SetupStore {
         settings: {
           game_directory: this.gameDirectory || null,
           onboarding_complete: this.complete,
+          show_nsfw: false,
+          theme: "dark",
         },
       });
     } catch (e) {

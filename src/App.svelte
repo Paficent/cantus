@@ -4,7 +4,7 @@
         ModsTab,
         BrowseTab,
         LogsTab,
-        PlaceholderTab,
+        SettingsTab,
     } from "$lib/components/tabs";
     import { Onboarding } from "$lib/components/onboarding";
     import { navStore } from "$lib/stores/nav.svelte";
@@ -31,10 +31,7 @@
             {:else if navStore.active === "browse"}
                 <BrowseTab />
             {:else if navStore.active === "settings"}
-                <PlaceholderTab
-                    title="Settings"
-                    description="Jeode configuration"
-                />
+                <SettingsTab />
             {:else if navStore.active === "logs"}
                 <LogsTab />
             {/if}

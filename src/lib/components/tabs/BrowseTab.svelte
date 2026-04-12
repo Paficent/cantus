@@ -1,10 +1,15 @@
 <script lang="ts">
     import Input from "$lib/components/ui/input/input.svelte";
     import { Skeleton } from "$lib/components/ui/skeleton";
+    import * as Select from "$lib/components/ui/select";
     import { BrowseCard } from "$lib/components/browse";
     import { browseStore } from "$lib/stores/browse.svelte";
     import { Search, Globe } from "lucide-svelte";
     import type { CategoryFilter, SortOption } from "$lib/types/browse";
+
+    const sortLabels: Record<SortOption, string> = {
+        popular: "Popular", recent: "Recent", downloads: "Downloads", likes: "Most liked",
+    };
 
     let sentinel = $state<HTMLElement | null>(null);
     let debounceTimer: ReturnType<typeof setTimeout>;
@@ -55,33 +60,42 @@
                 class="pl-8"
             />
         </div>
-        <select
-            class="flex h-9 w-[140px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        <Select.Root
+            type="single"
             value={browseStore.categoryFilter}
-            onchange={(e) =>
-                browseStore.setCategory(
-                    (e.currentTarget as HTMLSelectElement)
-                        .value as CategoryFilter,
-                )}
+            onValueChange={(v) => {
+                if (v) browseStore.setCategory(v as CategoryFilter);
+            }}
         >
-            <option value="all">All categories</option>
-            {#each browseStore.categories as cat}
-                <option value={cat}>{cat}</option>
-            {/each}
-        </select>
-        <select
-            class="flex h-9 w-[130px] rounded-md border border-input bg-background px-3 py-1 text-sm text-muted-foreground cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            <Select.Trigger class="w-[140px]">
+                {browseStore.categoryFilter === "all"
+                    ? "All categories"
+                    : browseStore.categoryFilter}
+            </Select.Trigger>
+            <Select.Content>
+                <Select.Item value="all">All categories</Select.Item>
+                {#each browseStore.categories as cat}
+                    <Select.Item value={cat}>{cat}</Select.Item>
+                {/each}
+            </Select.Content>
+        </Select.Root>
+        <Select.Root
+            type="single"
             value={browseStore.sort}
-            onchange={(e) =>
-                browseStore.setSort(
-                    (e.currentTarget as HTMLSelectElement).value as SortOption,
-                )}
+            onValueChange={(v) => {
+                if (v) browseStore.setSort(v as SortOption);
+            }}
         >
-            <option value="popular">Popular</option>
-            <option value="recent">Recent</option>
-            <option value="downloads">Downloads</option>
-            <option value="likes">Most liked</option>
-        </select>
+            <Select.Trigger class="w-[130px]">
+                {sortLabels[browseStore.sort]}
+            </Select.Trigger>
+            <Select.Content>
+                <Select.Item value="popular">Popular</Select.Item>
+                <Select.Item value="recent">Recent</Select.Item>
+                <Select.Item value="downloads">Downloads</Select.Item>
+                <Select.Item value="likes">Most liked</Select.Item>
+            </Select.Content>
+        </Select.Root>
     </div>
 
     <div class="flex-1 overflow-y-auto pr-1">
