@@ -10,236 +10,235 @@ enum ArchiveKind {
     Rar,
 }
 
-fn detect_kind(path: &Path) -> AppResult<ArchiveKind> {
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|e| e.to_lowercase())
-        .unwrap_or_default();
-    match ext.as_str() {
-        "zip" => Ok(ArchiveKind::Zip),
-        "7z" => Ok(ArchiveKind::SevenZ),
-        "rar" => Ok(ArchiveKind::Rar),
-        _ => Err(AppError::from(format!(
-            "Unsupported archive format: .{ext}"
-        ))),
+impl ArchiveKind {
+    fn from_path(path: &Path) -> AppResult<Self> {
+        match path
+            .extension()
+            .and_then(|e| e.to_str())
+            .map(|e| e.to_lowercase())
+            .as_deref()
+        {
+            Some("zip") => Ok(Self::Zip),
+            Some("7z") => Ok(Self::SevenZ),
+            Some("rar") => Ok(Self::Rar),
+            Some(ext) => Err(format!("Unsupported archive format: .{ext}").into()),
+            None => Err("No file extension ???".into()),
+        }
     }
 }
 
 fn staging_dir() -> AppResult<PathBuf> {
-    let base = std::env::temp_dir().join("cantus").join("staging");
+    let base = std::env::temp_dir().join("cantus/staging");
     std::fs::create_dir_all(&base)?;
     Ok(base)
 }
 
 fn unique_staging_path() -> AppResult<PathBuf> {
-    let id = std::time::SystemTime::now()
+    let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    let path = staging_dir()?.join(format!("mod_{id}"));
+
+    let path = staging_dir()?.join(format!("mod_{ts}"));
     std::fs::create_dir_all(&path)?;
     Ok(path)
 }
 
-fn extract(archive_path: &Path, dest: &Path) -> AppResult<()> {
-    match detect_kind(archive_path)? {
-        ArchiveKind::Zip => extract_zip(archive_path, dest),
-        ArchiveKind::SevenZ => extract_7z(archive_path, dest),
-        ArchiveKind::Rar => extract_rar(archive_path, dest),
+fn extract(archive: &Path, dest: &Path) -> AppResult<()> {
+    match ArchiveKind::from_path(archive)? {
+        ArchiveKind::Zip => extract_zip(archive, dest),
+        ArchiveKind::SevenZ => extract_7z(archive, dest),
+        ArchiveKind::Rar => extract_rar(archive, dest),
     }
 }
 
-fn extract_zip(archive_path: &Path, dest: &Path) -> AppResult<()> {
-    let file = std::fs::File::open(archive_path)?;
-    let mut archive = zip::ZipArchive::new(file)
+fn extract_zip(path: &Path, dest: &Path) -> AppResult<()> {
+    let file = std::fs::File::open(path)?;
+    let mut ar = zip::ZipArchive::new(file)
         .map_err(|e| AppError::from(format!("Failed to open zip: {e}")))?;
-    archive
-        .extract(dest)
+    ar.extract(dest)
         .map_err(|e| AppError::from(format!("Failed to extract zip: {e}")))?;
     Ok(())
 }
 
-fn extract_7z(archive_path: &Path, dest: &Path) -> AppResult<()> {
-    sevenz_rust::decompress_file(archive_path, dest)
-        .map_err(|e| AppError::from(format!("Failed to extract 7z: {e}")))?;
+fn extract_7z(path: &Path, dest: &Path) -> AppResult<()> {
+    sevenz_rust::decompress_file(path, dest)
+        .map_err(|e| AppError::from(format!("7z extraction failed: {e}")))?;
     Ok(())
 }
 
-fn extract_rar(archive_path: &Path, dest: &Path) -> AppResult<()> {
-    let mut archive = unrar::Archive::new(archive_path)
+fn extract_rar(path: &Path, dest: &Path) -> AppResult<()> {
+    let mut ar = unrar::Archive::new(path)
         .open_for_processing()
         .map_err(|e| AppError::from(format!("Failed to open rar: {e}")))?;
 
-    while let Some(header) = archive
+    while let Some(header) = ar
         .read_header()
-        .map_err(|e| AppError::from(format!("Failed to read rar header: {e}")))?
+        .map_err(|e| AppError::from(format!("Corrupt rar header: {e}")))?
     {
-        archive = header
+        ar = header
             .extract_with_base(dest)
-            .map_err(|e| AppError::from(format!("Failed to extract rar entry: {e}")))?;
+            .map_err(|e| AppError::from(format!("Rar extraction failed: {e}")))?;
     }
-
     Ok(())
-}
-
-fn find_mod_root(extracted: &Path) -> PathBuf {
-    if let Some(manifest) = find_manifest_recursive(extracted) {
-        manifest
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| extracted.to_path_buf())
-    } else {
-        let entries: Vec<_> = std::fs::read_dir(extracted)
-            .into_iter()
-            .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
-            .collect();
-
-        if entries.len() == 1 && entries[0].path().is_dir() {
-            entries[0].path()
-        } else {
-            extracted.to_path_buf()
-        }
-    }
-}
-
-fn find_manifest_recursive(dir: &Path) -> Option<PathBuf> {
-    let manifest = dir.join("manifest.json");
-    if manifest.exists() {
-        return Some(manifest);
-    }
-    let mut entries: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
-    entries.sort_by_key(|e| e.file_name());
-    for entry in entries {
-        let path = entry.path();
-        if path.is_dir() {
-            if let Some(found) = find_manifest_recursive(&path) {
-                return Some(found);
-            }
-        }
-    }
-    None
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> AppResult<()> {
     std::fs::create_dir_all(dest)?;
     for entry in std::fs::read_dir(src)?.flatten() {
-        let src_path = entry.path();
-        let dest_path = dest.join(entry.file_name());
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dest_path)?;
-        } else {
-            std::fs::copy(&src_path, &dest_path)?;
+        let target = dest.join(entry.file_name());
+        if entry.path().is_dir() {
+            copy_dir_recursive(&entry.path(), &target)?;
+            continue;
         }
+        std::fs::copy(entry.path(), target)?;
     }
     Ok(())
 }
 
-fn collect_files_recursive(dir: &Path) -> AppResult<Vec<PathBuf>> {
-    let mut files = Vec::new();
-    collect_files_inner(dir, &mut files)?;
-    Ok(files)
+fn copy_file_creating_parents(src: &Path, dest: &Path) -> AppResult<()> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::copy(src, dest)?;
+    Ok(())
 }
 
-fn collect_files_inner(dir: &Path, out: &mut Vec<PathBuf>) -> AppResult<()> {
+fn collect_files(dir: &Path) -> AppResult<Vec<PathBuf>> {
+    let mut out = Vec::new();
+    collect_files_walk(dir, &mut out)?;
+    Ok(out)
+}
+
+fn collect_files_walk(dir: &Path, out: &mut Vec<PathBuf>) -> AppResult<()> {
     if !dir.is_dir() {
         return Ok(());
     }
     for entry in std::fs::read_dir(dir)?.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_files_inner(&path, out)?;
-        } else {
-            out.push(path);
+        let p = entry.path();
+        if p.is_dir() {
+            collect_files_walk(&p, out)?;
+            continue;
         }
+        out.push(p);
     }
     Ok(())
 }
 
-fn build_game_file_index(data_dir: &Path) -> AppResult<HashMap<String, Vec<PathBuf>>> {
+fn build_file_index(data_dir: &Path) -> AppResult<HashMap<String, Vec<PathBuf>>> {
     let mut index: HashMap<String, Vec<PathBuf>> = HashMap::new();
     if !data_dir.is_dir() {
         return Ok(index);
     }
-
-    let files = collect_files_recursive(data_dir)?;
-    for file in files {
-        let relative = file
-            .strip_prefix(data_dir)
-            .unwrap_or(&file)
-            .to_path_buf();
-        let filename = file
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-        if !filename.is_empty() {
-            index.entry(filename).or_default().push(relative);
-        }
+    for file in collect_files(data_dir)? {
+        let Some(name) = file.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+        let rel = file.strip_prefix(data_dir).unwrap_or(&file).to_path_buf();
+        index.entry(name.to_lowercase()).or_default().push(rel);
     }
-
     Ok(index)
 }
 
-fn mod_name_from_archive(archive_path: &Path) -> String {
-    archive_path
-        .file_stem()
+fn find_mod_root(extracted: &Path) -> PathBuf {
+    if let Some(manifest) = find_manifest(extracted) {
+        return manifest.parent().unwrap_or(extracted).to_path_buf();
+    }
+
+    let entries: Vec<_> = std::fs::read_dir(extracted)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .collect();
+
+    match entries.as_slice() {
+        [only] if only.path().is_dir() => only.path(),
+        _ => extracted.to_path_buf(),
+    }
+}
+
+fn find_manifest(dir: &Path) -> Option<PathBuf> {
+    let candidate = dir.join("manifest.json");
+    if candidate.exists() {
+        return Some(candidate);
+    }
+    let mut children: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
+    children.sort_by_key(|e| e.file_name());
+
+    children
+        .iter()
+        .filter_map(|e| {
+            let p = e.path();
+            if p.is_dir() {
+                find_manifest(&p)
+            } else {
+                None
+            }
+        })
+        .next()
+}
+
+fn mod_name_from_archive(path: &Path) -> String {
+    path.file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("unknown-mod")
         .to_string()
 }
 
-fn install_native_jeode_mod(root: &Path, mods_dir: &Path) -> AppResult<String> {
-    let content = std::fs::read_to_string(root.join("manifest.json"))?;
-    let manifest: mods::Manifest = serde_json::from_str(&content)
+// native as in already a jeode mod not DLL mods
+fn install_native(root: &Path, mods_dir: &Path) -> AppResult<String> {
+    let raw = std::fs::read_to_string(root.join("manifest.json"))?;
+    let manifest: mods::Manifest = serde_json::from_str(&raw)
         .map_err(|e| AppError::from(format!("Invalid manifest.json: {e}")))?;
+
     let id = mods::sanitize_id(&manifest.id);
-    let name = manifest.name.clone();
     let dest = mods_dir.join(&id);
 
     if dest.exists() {
         std::fs::remove_dir_all(&dest)?;
     }
-
     copy_dir_recursive(root, &dest)?;
-    Ok(name)
+
+    Ok(manifest.name)
 }
 
-/// true = no 'data/' but subdirectories map to actual data subdirectories (gfx, etc.)
-fn looks_like_data_contents(mod_root: &Path, game_dir: &Path) -> bool {
+// no data directory but has gfx etc
+fn looks_like_bare_data(mod_root: &Path, game_dir: &Path) -> bool {
     let game_data = game_dir.join("data");
     if !game_data.is_dir() {
         return false;
     }
 
-    let mod_dirs: Vec<_> = std::fs::read_dir(mod_root)
+    let subdirs: Vec<_> = std::fs::read_dir(mod_root)
+        .ok()
         .into_iter()
-        .flat_map(|rd| rd.flatten().collect::<Vec<_>>())
+        .flatten()
+        .flatten()
         .filter(|e| e.path().is_dir())
         .collect();
 
-    if mod_dirs.is_empty() {
+    if subdirs.is_empty() {
         return false;
     }
 
-    let matching = mod_dirs
+    let hits = subdirs
         .iter()
         .filter(|e| game_data.join(e.file_name()).is_dir())
         .count();
 
-    // If at least half of the mod's directories exist inside data
-    matching > 0 && matching * 2 >= mod_dirs.len()
+    hits > 0 && hits * 2 >= subdirs.len()
 }
 
-fn install_rebuilt_mod(
+fn install_rebuilt(
     archive_path: &Path,
     root: &Path,
     game_dir: &Path,
     mods_dir: &Path,
 ) -> AppResult<String> {
-    let raw_name = mod_name_from_archive(archive_path);
-    let mod_id = mods::sanitize_id(&raw_name);
-    let mod_dir = mods_dir.join(&mod_id);
+    let name = mod_name_from_archive(archive_path);
+    let id = mods::sanitize_id(&name);
+    let mod_dir = mods_dir.join(&id);
 
     if mod_dir.exists() {
         std::fs::remove_dir_all(&mod_dir)?;
@@ -248,53 +247,15 @@ fn install_rebuilt_mod(
 
     if root.join("data").is_dir() {
         copy_dir_recursive(root, &mod_dir)?;
-    } else if looks_like_data_contents(root, game_dir) {
-        let dest_data = mod_dir.join("data");
-        copy_dir_recursive(root, &dest_data)?;
+    } else if looks_like_bare_data(root, game_dir) {
+        copy_dir_recursive(root, &mod_dir.join("data"))?;
     } else {
-        let game_data = game_dir.join("data");
-        let index = build_game_file_index(&game_data)?;
-        let archive_files = collect_files_recursive(root)?;
-        let mut matched_any = false;
-
-        for file_path in &archive_files {
-            let filename = file_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("")
-                .to_lowercase();
-
-            if let Some(game_relatives) = index.get(&filename) {
-                if let Some(game_rel) = game_relatives.first() {
-                    let dest = mod_dir.join("data").join(game_rel);
-                    if let Some(parent) = dest.parent() {
-                        std::fs::create_dir_all(parent)?;
-                    }
-                    std::fs::copy(file_path, &dest)?;
-                    matched_any = true;
-                    continue;
-                }
-            }
-
-            let relative = file_path
-                .strip_prefix(root)
-                .unwrap_or(file_path)
-                .to_path_buf();
-            let dest = mod_dir.join(&relative);
-            if let Some(parent) = dest.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            std::fs::copy(file_path, &dest)?;
-        }
-
-        if !matched_any {
-            log::info!("No game data matches found for {raw_name}, installed files as-is");
-        }
+        place_files_by_name(root, game_dir, &mod_dir)?;
     }
 
     let manifest = mods::Manifest {
-        id: mod_id,
-        name: raw_name.clone(),
+        id,
+        name: name.clone(),
         assets: mods::ManifestAssets {
             auto_override: true,
             ..Default::default()
@@ -303,26 +264,57 @@ fn install_rebuilt_mod(
     };
     mods::write_manifest(&mod_dir.join("manifest.json"), &manifest)?;
 
-    Ok(raw_name)
+    Ok(name)
 }
 
-pub fn install(archive_path: &Path, game_dir: &Path) -> AppResult<String> {
-    let staging = unique_staging_path()?;
-    let result = install_inner(archive_path, game_dir, &staging);
-    let _ = std::fs::remove_dir_all(&staging);
-    result
+fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResult<()> {
+    let game_data = game_dir.join("data");
+    let index = build_file_index(&game_data)?;
+    let mut matched_any = false;
+
+    for file in &collect_files(root)? {
+        let filename = file
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if let Some(rel) = index.get(&filename).and_then(|v| v.first()) {
+            copy_file_creating_parents(file, &mod_dir.join("data").join(rel))?;
+            matched_any = true;
+            continue;
+        }
+
+        let rel = file.strip_prefix(root).unwrap_or(file);
+        copy_file_creating_parents(file, &mod_dir.join(rel))?;
+    }
+
+    if matched_any {
+        return Ok(());
+    }
+
+    log::info!(
+        "No data matches for {}, installed as normal",
+        mod_name_from_archive(&root.to_path_buf().join("_"))
+    );
+    Ok(())
 }
 
-fn install_inner(archive_path: &Path, game_dir: &Path, staging: &Path) -> AppResult<String> {
+fn do_install(archive_path: &Path, game_dir: &Path, staging: &Path) -> AppResult<String> {
     extract(archive_path, staging)?;
-
     let root = find_mod_root(staging);
     let mods_dir = game_dir.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
     if root.join("manifest.json").exists() {
-        install_native_jeode_mod(&root, &mods_dir)
-    } else {
-        install_rebuilt_mod(archive_path, &root, game_dir, &mods_dir)
+        return install_native(&root, &mods_dir);
     }
+    install_rebuilt(archive_path, &root, game_dir, &mods_dir)
+}
+
+pub fn install(archive_path: &Path, game_dir: &Path) -> AppResult<String> {
+    let staging = unique_staging_path()?;
+    let result = do_install(archive_path, game_dir, &staging);
+    let _ = std::fs::remove_dir_all(&staging);
+    result
 }
