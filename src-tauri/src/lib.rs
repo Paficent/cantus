@@ -3,7 +3,7 @@ mod errors;
 mod services;
 mod state;
 
-use commands::{logs, mods, onboarding, settings};
+use commands::{browse, logs, mods, onboarding, settings};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -25,6 +25,9 @@ pub fn run() {
             mods::open_mod_folder,
             mods::watch_mods_folder,
             mods::install_mod,
+            browse::browse_mods,
+            browse::browse_categories,
+            browse::browse_install_mod,
             settings::load_settings,
             settings::save_settings,
             settings::read_jeode_settings,

@@ -51,7 +51,7 @@
 <div class="flex flex-col h-full">
     <div class="flex items-start justify-between mb-4">
         <div>
-            <h2 class="text-base font-medium">Runtime logs</h2>
+            <h2 class="text-base font-medium">Logs</h2>
             <p class="text-xs text-muted-foreground mt-0.5">
                 {logStore.filtered.length} of {logStore.counts.total} entries
                 <span class="ml-2 text-muted-foreground/50">
@@ -125,7 +125,10 @@
         </Select.Root>
     </div>
 
-    <div bind:this={scrollContainer} class="flex-1 rounded-lg border border-border bg-card overflow-y-auto">
+    <div
+        bind:this={scrollContainer}
+        class="flex-1 rounded-lg border border-border bg-card overflow-y-auto"
+    >
         {#if logStore.loading}
             <div
                 class="flex flex-col items-center justify-center py-16 text-muted-foreground"
@@ -143,7 +146,9 @@
             >
                 <CircleAlert class="size-10 mb-3 opacity-30 text-destructive" />
                 <p class="text-sm">Failed to load logs</p>
-                <p class="text-xs mt-1 font-mono text-destructive/70 max-w-md text-center">
+                <p
+                    class="text-xs mt-1 font-mono text-destructive/70 max-w-md text-center"
+                >
                     {logStore.error}
                 </p>
             </div>

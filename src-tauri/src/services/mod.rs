@@ -1,7 +1,8 @@
 pub mod game;
-pub mod jeode;
-pub mod mods;
-pub mod watcher;
+pub mod gamebanana;
 pub mod installer;
-pub mod settings;
+pub mod jeode;
 pub mod log_watcher;
+pub mod mods;
+pub mod settings;
+pub mod watcher;

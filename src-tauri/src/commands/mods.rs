@@ -50,11 +50,13 @@ pub async fn watch_mods_folder(
     crate::services::watcher::start(app, mods_dir)
 }
 
+use crate::services::installer::InstallResult;
+
 #[tauri::command]
 pub async fn install_mod(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
-) -> Result<Option<String>, AppError> {
+) -> Result<Option<InstallResult>, AppError> {
     let dir = game_dir(&state)?;
 
     let file = app
@@ -69,8 +71,8 @@ pub async fn install_mod(
             let path = file_path
                 .into_path()
                 .map_err(|_| AppError::from("Invalid file path selected"))?;
-            let name = crate::services::installer::install(&path, &dir)?;
-            Ok(Some(name))
+            let result = crate::services::installer::install(&path, &dir)?;
+            Ok(Some(result))
         }
         None => Ok(None),
     }

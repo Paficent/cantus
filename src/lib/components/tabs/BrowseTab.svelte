@@ -5,10 +5,17 @@
     import { BrowseCard } from "$lib/components/browse";
     import { browseStore } from "$lib/stores/browse.svelte";
     import { Search, Globe } from "lucide-svelte";
+    import { toast } from "svelte-sonner";
     import type { CategoryFilter, SortOption } from "$lib/types/browse";
+    import type { InstallResult } from "$lib/types/mod";
 
     const sortLabels: Record<SortOption, string> = {
-        popular: "Popular", recent: "Recent", downloads: "Downloads", likes: "Most liked",
+        recent: "Recent",
+        newest: "Newest",
+        updated: "Updated",
+        popular: "Popular",
+        downloads: "Downloads",
+        likes: "Most liked",
     };
 
     let sentinel = $state<HTMLElement | null>(null);
@@ -19,6 +26,44 @@
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => browseStore.setSearch(value), 300);
     }
+
+    function showInstallToast(result: InstallResult) {
+        if (result.installed.length === result.total) {
+            const names = result.installed.join(", ");
+            toast.success(
+                result.total === 1
+                    ? `Installed ${names}`
+                    : `Installed ${result.total} mods`,
+                result.total > 1 ? { description: names } : undefined,
+            );
+        } else if (result.installed.length > 0) {
+            toast.warning(
+                `Installed ${result.installed.length} of ${result.total} mods`,
+                {
+                    description: result.error ?? undefined,
+                },
+            );
+        } else {
+            toast.error("Installation failed", {
+                description: result.error ?? undefined,
+            });
+        }
+    }
+
+    async function handleInstall(id: number) {
+        try {
+            const result = await browseStore.install(id);
+            if (result) showInstallToast(result);
+        } catch (e) {
+            toast.error("Installation failed", { description: String(e) });
+        }
+    }
+
+    $effect(() => {
+        if (browseStore.categories.length === 0) {
+            browseStore.loadCategories();
+        }
+    });
 
     $effect(() => {
         if (browseStore.items.length === 0 && browseStore.hasMore) {
@@ -42,9 +87,9 @@
 <div class="flex flex-col h-full">
     <div class="flex items-start justify-between mb-4">
         <div>
-            <h2 class="text-base font-medium">Browse mods</h2>
+            <h2 class="text-base font-medium">Browse Mods</h2>
             <p class="text-xs text-muted-foreground mt-0.5">
-                {browseStore.totalLoaded} mods loaded
+                Created using GameBanana's API
             </p>
         </div>
     </div>
@@ -62,20 +107,22 @@
         </div>
         <Select.Root
             type="single"
-            value={browseStore.categoryFilter}
+            value={String(browseStore.categoryFilter)}
             onValueChange={(v) => {
-                if (v) browseStore.setCategory(v as CategoryFilter);
+                if (v) browseStore.setCategory(v === "all" ? "all" : Number(v));
             }}
         >
             <Select.Trigger class="w-[140px]">
                 {browseStore.categoryFilter === "all"
                     ? "All categories"
-                    : browseStore.categoryFilter}
+                    : (browseStore.categories.find(
+                          (c) => c.id === browseStore.categoryFilter,
+                      )?.name ?? "Category")}
             </Select.Trigger>
             <Select.Content>
                 <Select.Item value="all">All categories</Select.Item>
                 {#each browseStore.categories as cat}
-                    <Select.Item value={cat}>{cat}</Select.Item>
+                    <Select.Item value={String(cat.id)}>{cat.name}</Select.Item>
                 {/each}
             </Select.Content>
         </Select.Root>
@@ -90,8 +137,10 @@
                 {sortLabels[browseStore.sort]}
             </Select.Trigger>
             <Select.Content>
-                <Select.Item value="popular">Popular</Select.Item>
                 <Select.Item value="recent">Recent</Select.Item>
+                <Select.Item value="newest">Newest</Select.Item>
+                <Select.Item value="updated">Updated</Select.Item>
+                <Select.Item value="popular">Popular</Select.Item>
                 <Select.Item value="downloads">Downloads</Select.Item>
                 <Select.Item value="likes">Most liked</Select.Item>
             </Select.Content>
@@ -105,7 +154,7 @@
                     <BrowseCard
                         {mod}
                         installing={browseStore.installing.has(mod.id)}
-                        oninstall={(id) => browseStore.install(id)}
+                        oninstall={handleInstall}
                     />
                 {/each}
 

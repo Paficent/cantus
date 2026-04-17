@@ -1,8 +1,23 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
+
 use crate::errors::{AppError, AppResult};
 use crate::services::mods;
+
+pub struct ModMetadata {
+    pub id: String,
+    pub name: String,
+    pub author: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct InstallResult {
+    pub installed: Vec<String>,
+    pub total: usize,
+    pub error: Option<String>,
+}
 
 enum ArchiveKind {
     Zip,
@@ -140,6 +155,28 @@ fn build_file_index(data_dir: &Path) -> AppResult<HashMap<String, Vec<PathBuf>>>
     Ok(index)
 }
 
+fn find_mod_roots(extracted: &Path) -> Vec<PathBuf> {
+    let subdirs: Vec<_> = std::fs::read_dir(extracted)
+        .ok()
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .collect();
+
+    let roots: Vec<PathBuf> = subdirs
+        .iter()
+        .filter(|e| e.path().join("manifest.json").exists())
+        .map(|e| e.path())
+        .collect();
+
+    if roots.len() > 1 {
+        return roots;
+    }
+
+    vec![find_mod_root(extracted)]
+}
+
 fn find_mod_root(extracted: &Path) -> PathBuf {
     if let Some(manifest) = find_manifest(extracted) {
         return manifest.parent().unwrap_or(extracted).to_path_buf();
@@ -235,9 +272,17 @@ fn install_rebuilt(
     root: &Path,
     game_dir: &Path,
     mods_dir: &Path,
+    metadata: Option<&ModMetadata>,
 ) -> AppResult<String> {
-    let name = mod_name_from_archive(archive_path);
-    let id = mods::sanitize_id(&name);
+    let name = metadata
+        .map(|m| m.name.clone())
+        .unwrap_or_else(|| mod_name_from_archive(archive_path));
+    let id = metadata
+        .map(|m| mods::sanitize_id(&m.id))
+        .unwrap_or_else(|| mods::sanitize_id(&name));
+    let author = metadata
+        .map(|m| m.author.clone())
+        .unwrap_or_else(|| "Unknown".into());
     let mod_dir = mods_dir.join(&id);
 
     if mod_dir.exists() {
@@ -256,6 +301,7 @@ fn install_rebuilt(
     let manifest = mods::Manifest {
         id,
         name: name.clone(),
+        author,
         assets: mods::ManifestAssets {
             auto_override: true,
             ..Default::default()
@@ -285,6 +331,19 @@ fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResul
             continue;
         }
 
+        if filename.ends_with(".png") || filename.ends_with(".jpg") || filename.ends_with(".jpeg") {
+            let stem = Path::new(&filename)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            let avif_name = format!("{stem}.avif");
+            if let Some(rel) = index.get(&avif_name).and_then(|v| v.first()) {
+                copy_file_creating_parents(file, &mod_dir.join("data").join(rel))?;
+                matched_any = true;
+                continue;
+            }
+        }
+
         let rel = file.strip_prefix(root).unwrap_or(file);
         copy_file_creating_parents(file, &mod_dir.join(rel))?;
     }
@@ -300,21 +359,68 @@ fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResul
     Ok(())
 }
 
-fn do_install(archive_path: &Path, game_dir: &Path, staging: &Path) -> AppResult<String> {
+fn install_single(
+    archive_path: &Path,
+    root: &Path,
+    game_dir: &Path,
+    mods_dir: &Path,
+    metadata: Option<&ModMetadata>,
+) -> AppResult<String> {
+    if root.join("manifest.json").exists() {
+        return install_native(root, mods_dir);
+    }
+    install_rebuilt(archive_path, root, game_dir, mods_dir, metadata)
+}
+
+fn do_install(
+    archive_path: &Path,
+    game_dir: &Path,
+    staging: &Path,
+    metadata: Option<&ModMetadata>,
+) -> AppResult<InstallResult> {
     extract(archive_path, staging)?;
-    let root = find_mod_root(staging);
     let mods_dir = game_dir.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    if root.join("manifest.json").exists() {
-        return install_native(&root, &mods_dir);
+    let roots = find_mod_roots(staging);
+    let total = roots.len();
+    let mut installed = Vec::new();
+    let mut errors = Vec::new();
+
+    for root in &roots {
+        match install_single(archive_path, root, game_dir, &mods_dir, metadata) {
+            Ok(name) => installed.push(name),
+            Err(e) => errors.push(e.to_string()),
+        }
     }
-    install_rebuilt(archive_path, &root, game_dir, &mods_dir)
+
+    let error = if errors.is_empty() {
+        None
+    } else {
+        Some(errors.join("; "))
+    };
+
+    Ok(InstallResult {
+        installed,
+        total,
+        error,
+    })
 }
 
-pub fn install(archive_path: &Path, game_dir: &Path) -> AppResult<String> {
+pub fn install(archive_path: &Path, game_dir: &Path) -> AppResult<InstallResult> {
     let staging = unique_staging_path()?;
-    let result = do_install(archive_path, game_dir, &staging);
+    let result = do_install(archive_path, game_dir, &staging, None);
+    let _ = std::fs::remove_dir_all(&staging);
+    result
+}
+
+pub fn install_with_metadata(
+    archive_path: &Path,
+    game_dir: &Path,
+    metadata: &ModMetadata,
+) -> AppResult<InstallResult> {
+    let staging = unique_staging_path()?;
+    let result = do_install(archive_path, game_dir, &staging, Some(metadata));
     let _ = std::fs::remove_dir_all(&staging);
     result
 }

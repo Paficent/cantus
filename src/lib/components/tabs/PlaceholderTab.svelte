@@ -14,5 +14,5 @@
 >
     <Code class="size-10 mb-3 opacity-30" />
     <p class="text-sm font-medium">{title}</p>
-    <p class="text-xs mt-1">{description}</p>
+    <p class="text-xs mt-1">ermm... this doesnt seem to exist...</p>
 </div>

@@ -7,6 +7,7 @@
         SettingsTab,
     } from "$lib/components/tabs";
     import { Onboarding } from "$lib/components/onboarding";
+    import { Toaster } from "$lib/components/ui/sonner";
     import { navStore } from "$lib/stores/nav.svelte";
     import { setupStore } from "$lib/stores/setup.svelte";
 
@@ -38,3 +39,5 @@
         </main>
     </div>
 {/if}
+
+<Toaster richColors />

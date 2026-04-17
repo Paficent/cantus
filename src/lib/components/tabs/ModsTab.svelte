@@ -5,14 +5,54 @@
     import * as Select from "$lib/components/ui/select";
     import { ModEntry } from "$lib/components/mods";
     import { modStore } from "$lib/stores/mods.svelte";
-    import { RefreshCw, Search, Puzzle, Loader2, Download } from "lucide-svelte";
-    import type { Mod, TypeFilter, StatusFilter } from "$lib/types/mod";
+    import {
+        RefreshCw,
+        Search,
+        Puzzle,
+        Loader2,
+        Download,
+    } from "lucide-svelte";
+    import { toast } from "svelte-sonner";
+    import type {
+        Mod,
+        InstallResult,
+        TypeFilter,
+        StatusFilter,
+    } from "$lib/types/mod";
+
+    function showInstallToast(result: InstallResult) {
+        if (result.installed.length === result.total) {
+            const names = result.installed.join(", ");
+            toast.success(
+                result.total === 1
+                    ? `Installed ${names}`
+                    : `Installed ${result.total} mods`,
+                result.total > 1 ? { description: names } : undefined,
+            );
+        } else if (result.installed.length > 0) {
+            toast.warning(
+                `Installed ${result.installed.length} of ${result.total} mods`,
+                {
+                    description: result.error ?? undefined,
+                },
+            );
+        } else {
+            toast.error("Installation failed", {
+                description: result.error ?? undefined,
+            });
+        }
+    }
 
     const typeLabels: Record<TypeFilter, string> = {
-        all: "All types", native: "Native", lua: "Lua", asset: "Asset",
+        all: "All types",
+        native: "Native",
+        lua: "Lua",
+        asset: "Asset",
     };
     const statusLabels: Record<StatusFilter, string> = {
-        all: "All status", enabled: "Enabled", disabled: "Disabled",
+        all: "All status",
+        enabled: "Enabled",
+        disabled: "Disabled",
     };
 
     let removeTarget = $state<Mod | null>(null);
@@ -37,7 +77,7 @@
 <div class="flex flex-col h-full">
     <div class="flex items-start justify-between mb-4">
         <div>
-            <h2 class="text-base font-medium">Installed mods</h2>
+            <h2 class="text-base font-medium">Installed Mods</h2>
             <p class="text-xs text-muted-foreground mt-0.5">
                 {modStore.enabledCount} of {modStore.totalCount} enabled
             </p>
@@ -52,9 +92,12 @@
                 disabled={modStore.installing}
                 onclick={async () => {
                     try {
-                        await modStore.install();
-                    } catch {
-                        // handled by store
+                        const result = await modStore.install();
+                        if (result) showInstallToast(result);
+                    } catch (e) {
+                        toast.error("Installation failed", {
+                            description: String(e),
+                        });
                     }
                 }}
             >

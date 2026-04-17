@@ -2,7 +2,14 @@
     import * as Card from "$lib/components/ui/card";
     import { Badge } from "$lib/components/ui/badge";
     import Button from "$lib/components/ui/button/button.svelte";
-    import { Download, Eye, Heart, Loader2 } from "lucide-svelte";
+    import {
+        Download,
+        Eye,
+        Heart,
+        Loader2,
+        Calendar,
+        RefreshCw,
+    } from "lucide-svelte";
     import type { BrowseMod } from "$lib/types/browse";
 
     interface Props {
@@ -16,6 +23,22 @@
     function fmt(n: number): string {
         if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
         return n.toString();
+    }
+
+    function timeAgo(ts: number): string {
+        if (!ts) return "Unknown";
+        const seconds = Math.floor(Date.now() / 1000 - ts);
+        if (seconds < 60) return "just now";
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        const days = Math.floor(hours / 24);
+        if (days < 30) return `${days}d ago`;
+        const months = Math.floor(days / 30);
+        if (months < 12) return `${months}mo ago`;
+        const years = Math.floor(months / 12);
+        return `${years}y ago`;
     }
 </script>
 
@@ -52,10 +75,26 @@
                 <Heart class="size-3" />
                 {fmt(mod.likes)}
             </span>
-            <span class="flex items-center gap-1">
-                <Download class="size-3" />
-                {fmt(mod.downloads)}
+            {#if mod.downloads}
+                <span class="flex items-center gap-1">
+                    <Download class="size-3" />
+                    {fmt(mod.downloads)}
+                </span>
+            {/if}
+        </div>
+        <div
+            class="flex items-center gap-3 mt-1.5 text-[11px] text-muted-foreground"
+        >
+            <span class="flex items-center gap-1" title="Created">
+                <Calendar class="size-3" />
+                {timeAgo(mod.date_added)}
             </span>
+            {#if mod.date_updated && mod.date_updated !== mod.date_added}
+                <span class="flex items-center gap-1" title="Last updated">
+                    <RefreshCw class="size-3" />
+                    {timeAgo(mod.date_updated)}
+                </span>
+            {/if}
         </div>
     </Card.Content>
 

@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Mod, TypeFilter, StatusFilter } from "$lib/types/mod";
+import type {
+  Mod,
+  InstallResult,
+  TypeFilter,
+  StatusFilter,
+} from "$lib/types/mod";
 
 class ModStore {
   mods = $state<Mod[]>([]);
@@ -83,15 +88,12 @@ class ModStore {
     }
   }
 
-  async install(): Promise<string | null> {
+  async install(): Promise<InstallResult | null> {
     this.installing = true;
     try {
-      const name = await invoke<string | null>("install_mod");
-      if (name) await this.load();
-      return name;
-    } catch (e) {
-      console.error("Failed to install mod:", e);
-      throw e;
+      const result = await invoke<InstallResult | null>("install_mod");
+      if (result) await this.load();
+      return result;
     } finally {
       this.installing = false;
     }

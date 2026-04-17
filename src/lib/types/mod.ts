@@ -9,5 +9,11 @@ export interface Mod {
   enabled: boolean;
 }
 
+export interface InstallResult {
+  installed: string[];
+  total: number;
+  error: string | null;
+}
+
 export type TypeFilter = ModType | "all";
 export type StatusFilter = "all" | "enabled" | "disabled";
