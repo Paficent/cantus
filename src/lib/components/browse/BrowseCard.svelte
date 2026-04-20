@@ -11,6 +11,7 @@
         RefreshCw,
     } from "lucide-svelte";
     import type { BrowseMod } from "$lib/types/browse";
+    import { open } from "@tauri-apps/api/shell";
 
     interface Props {
         mod: BrowseMod;
@@ -23,6 +24,10 @@
     function fmt(n: number): string {
         if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "k";
         return n.toString();
+    }
+
+    function openMod() {
+        open(`https://gamebanana.com/mods/${mod.id}`);
     }
 
     function timeAgo(ts: number): string {
@@ -47,8 +52,9 @@
         <img
             src={mod.screenshot}
             alt={mod.name}
-            class="aspect-video w-full object-cover"
+            class="cursor-pointer"
             loading="lazy"
+            on:click={openMod}
         />
         <div class="absolute top-2 left-2">
             <Badge
@@ -61,7 +67,7 @@
     </div>
 
     <Card.Header>
-        <Card.Title class="truncate">{mod.name}</Card.Title>
+        <Card.Title class="truncate" on:click={openMod}>{mod.name}</Card.Title>
         <Card.Description>{mod.author}</Card.Description>
     </Card.Header>
 
