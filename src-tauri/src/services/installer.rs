@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
+use walkdir::WalkDir;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::{AppResult, Context};
 use crate::services::mods;
 
 pub struct ModMetadata {
@@ -19,13 +20,13 @@ pub struct InstallResult {
     pub error: Option<String>,
 }
 
-enum ArchiveKind {
+enum Archive {
     Zip,
     SevenZ,
     Rar,
 }
 
-impl ArchiveKind {
+impl Archive {
     fn from_path(path: &Path) -> AppResult<Self> {
         match path
             .extension()
@@ -40,73 +41,68 @@ impl ArchiveKind {
             None => Err("No file extension ???".into()),
         }
     }
-}
 
-fn staging_dir() -> AppResult<PathBuf> {
-    let base = std::env::temp_dir().join("cantus/staging");
-    std::fs::create_dir_all(&base)?;
-    Ok(base)
-}
-
-fn unique_staging_path() -> AppResult<PathBuf> {
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis())
-        .unwrap_or(0);
-
-    let path = staging_dir()?.join(format!("mod_{ts}"));
-    std::fs::create_dir_all(&path)?;
-    Ok(path)
-}
-
-fn extract(archive: &Path, dest: &Path) -> AppResult<()> {
-    match ArchiveKind::from_path(archive)? {
-        ArchiveKind::Zip => extract_zip(archive, dest),
-        ArchiveKind::SevenZ => extract_7z(archive, dest),
-        ArchiveKind::Rar => extract_rar(archive, dest),
+    fn extract(self, archive: &Path, dest: &Path) -> AppResult<()> {
+        match self {
+            Self::Zip => {
+                let file = std::fs::File::open(archive)?;
+                let mut ar = zip::ZipArchive::new(file).context("failed to open zip")?;
+                ar.extract(dest).context("failed to extract zip")?;
+            }
+            Self::SevenZ => {
+                sevenz_rust::decompress_file(archive, dest).context("7z extraction failed")?;
+            }
+            Self::Rar => {
+                let mut ar = unrar::Archive::new(archive)
+                    .open_for_processing()
+                    .context("failed to open rar")?;
+                while let Some(header) = ar.read_header().context("corrupt rar header")? {
+                    ar = header
+                        .extract_with_base(dest)
+                        .context("rar extraction failed")?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
-fn extract_zip(path: &Path, dest: &Path) -> AppResult<()> {
-    let file = std::fs::File::open(path)?;
-    let mut ar = zip::ZipArchive::new(file)
-        .map_err(|e| AppError::from(format!("Failed to open zip: {e}")))?;
-    ar.extract(dest)
-        .map_err(|e| AppError::from(format!("Failed to extract zip: {e}")))?;
-    Ok(())
-}
+struct StagingDir(PathBuf);
 
-fn extract_7z(path: &Path, dest: &Path) -> AppResult<()> {
-    sevenz_rust::decompress_file(path, dest)
-        .map_err(|e| AppError::from(format!("7z extraction failed: {e}")))?;
-    Ok(())
-}
-
-fn extract_rar(path: &Path, dest: &Path) -> AppResult<()> {
-    let mut ar = unrar::Archive::new(path)
-        .open_for_processing()
-        .map_err(|e| AppError::from(format!("Failed to open rar: {e}")))?;
-
-    while let Some(header) = ar
-        .read_header()
-        .map_err(|e| AppError::from(format!("Corrupt rar header: {e}")))?
-    {
-        ar = header
-            .extract_with_base(dest)
-            .map_err(|e| AppError::from(format!("Rar extraction failed: {e}")))?;
+impl StagingDir {
+    fn new() -> AppResult<Self> {
+        let base = std::env::temp_dir().join("cantus/staging");
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let path = base.join(format!("mod_{ts}"));
+        std::fs::create_dir_all(&path)?;
+        Ok(Self(path))
     }
-    Ok(())
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for StagingDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> AppResult<()> {
-    std::fs::create_dir_all(dest)?;
-    for entry in std::fs::read_dir(src)?.flatten() {
-        let target = dest.join(entry.file_name());
-        if entry.path().is_dir() {
-            copy_dir_recursive(&entry.path(), &target)?;
-            continue;
+    for entry in WalkDir::new(src) {
+        let entry = entry.context("walk failed")?;
+        let rel = entry.path().strip_prefix(src).unwrap();
+        let target = dest.join(rel);
+
+        if entry.file_type().is_dir() {
+            std::fs::create_dir_all(&target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)?;
         }
-        std::fs::copy(entry.path(), target)?;
     }
     Ok(())
 }
@@ -120,24 +116,15 @@ fn copy_file_creating_parents(src: &Path, dest: &Path) -> AppResult<()> {
 }
 
 fn collect_files(dir: &Path) -> AppResult<Vec<PathBuf>> {
-    let mut out = Vec::new();
-    collect_files_walk(dir, &mut out)?;
-    Ok(out)
-}
-
-fn collect_files_walk(dir: &Path, out: &mut Vec<PathBuf>) -> AppResult<()> {
     if !dir.is_dir() {
-        return Ok(());
+        return Ok(Vec::new());
     }
-    for entry in std::fs::read_dir(dir)?.flatten() {
-        let p = entry.path();
-        if p.is_dir() {
-            collect_files_walk(&p, out)?;
-            continue;
-        }
-        out.push(p);
-    }
-    Ok(())
+    Ok(WalkDir::new(dir)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .map(|e| e.into_path())
+        .collect())
 }
 
 fn build_file_index(data_dir: &Path) -> AppResult<HashMap<String, Vec<PathBuf>>> {
@@ -155,65 +142,46 @@ fn build_file_index(data_dir: &Path) -> AppResult<HashMap<String, Vec<PathBuf>>>
     Ok(index)
 }
 
-fn find_mod_roots(extracted: &Path) -> Vec<PathBuf> {
-    let subdirs: Vec<_> = std::fs::read_dir(extracted)
-        .ok()
+fn find_mod_roots(extracted: &Path) -> AppResult<Vec<PathBuf>> {
+    let direct: Vec<PathBuf> = WalkDir::new(extracted)
+        .min_depth(1)
+        .max_depth(1)
         .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|e| e.path().is_dir())
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_dir() && e.path().join("manifest.json").exists())
+        .map(|e| e.into_path())
         .collect();
 
-    let roots: Vec<PathBuf> = subdirs
-        .iter()
-        .filter(|e| e.path().join("manifest.json").exists())
-        .map(|e| e.path())
-        .collect();
-
-    if roots.len() > 1 {
-        return roots;
+    if direct.len() > 1 {
+        return Ok(direct);
     }
 
-    vec![find_mod_root(extracted)]
-}
-
-fn find_mod_root(extracted: &Path) -> PathBuf {
     if let Some(manifest) = find_manifest(extracted) {
-        return manifest.parent().unwrap_or(extracted).to_path_buf();
+        return Ok(vec![manifest.parent().unwrap_or(extracted).to_path_buf()]);
     }
 
-    let entries: Vec<_> = std::fs::read_dir(extracted)
-        .ok()
+    let top: Vec<PathBuf> = WalkDir::new(extracted)
+        .min_depth(1)
+        .max_depth(1)
         .into_iter()
-        .flatten()
-        .flatten()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_dir())
+        .map(|e| e.into_path())
         .collect();
 
-    match entries.as_slice() {
-        [only] if only.path().is_dir() => only.path(),
+    Ok(vec![match top.as_slice() {
+        [only] => only.clone(),
         _ => extracted.to_path_buf(),
-    }
+    }])
 }
 
 fn find_manifest(dir: &Path) -> Option<PathBuf> {
-    let candidate = dir.join("manifest.json");
-    if candidate.exists() {
-        return Some(candidate);
-    }
-    let mut children: Vec<_> = std::fs::read_dir(dir).ok()?.flatten().collect();
-    children.sort_by_key(|e| e.file_name());
-
-    children
-        .iter()
-        .filter_map(|e| {
-            let p = e.path();
-            if p.is_dir() {
-                find_manifest(&p)
-            } else {
-                None
-            }
-        })
-        .next()
+    WalkDir::new(dir)
+        .sort_by_file_name()
+        .into_iter()
+        .filter_map(Result::ok)
+        .map(|e| e.into_path())
+        .find(|p| p.file_name().and_then(|n| n.to_str()) == Some("manifest.json"))
 }
 
 fn mod_name_from_archive(path: &Path) -> String {
@@ -223,23 +191,6 @@ fn mod_name_from_archive(path: &Path) -> String {
         .to_string()
 }
 
-// native as in already a jeode mod not DLL mods
-fn install_native(root: &Path, mods_dir: &Path) -> AppResult<String> {
-    let raw = std::fs::read_to_string(root.join("manifest.json"))?;
-    let manifest: mods::Manifest = serde_json::from_str(&raw)
-        .map_err(|e| AppError::from(format!("Invalid manifest.json: {e}")))?;
-
-    let id = mods::sanitize_id(&manifest.id);
-    let dest = mods_dir.join(&id);
-
-    if dest.exists() {
-        std::fs::remove_dir_all(&dest)?;
-    }
-    copy_dir_recursive(root, &dest)?;
-
-    Ok(manifest.name)
-}
-
 // no data directory but has gfx etc
 fn looks_like_bare_data(mod_root: &Path, game_dir: &Path) -> bool {
     let game_data = game_dir.join("data");
@@ -247,12 +198,12 @@ fn looks_like_bare_data(mod_root: &Path, game_dir: &Path) -> bool {
         return false;
     }
 
-    let subdirs: Vec<_> = std::fs::read_dir(mod_root)
-        .ok()
+    let subdirs: Vec<_> = WalkDir::new(mod_root)
+        .min_depth(1)
+        .max_depth(1)
         .into_iter()
-        .flatten()
-        .flatten()
-        .filter(|e| e.path().is_dir())
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_dir())
         .collect();
 
     if subdirs.is_empty() {
@@ -265,52 +216,6 @@ fn looks_like_bare_data(mod_root: &Path, game_dir: &Path) -> bool {
         .count();
 
     hits > 0 && hits * 2 >= subdirs.len()
-}
-
-fn install_rebuilt(
-    archive_path: &Path,
-    root: &Path,
-    game_dir: &Path,
-    mods_dir: &Path,
-    metadata: Option<&ModMetadata>,
-) -> AppResult<String> {
-    let name = metadata
-        .map(|m| m.name.clone())
-        .unwrap_or_else(|| mod_name_from_archive(archive_path));
-    let id = metadata
-        .map(|m| mods::sanitize_id(&m.id))
-        .unwrap_or_else(|| mods::sanitize_id(&name));
-    let author = metadata
-        .map(|m| m.author.clone())
-        .unwrap_or_else(|| "Unknown".into());
-    let mod_dir = mods_dir.join(&id);
-
-    if mod_dir.exists() {
-        std::fs::remove_dir_all(&mod_dir)?;
-    }
-    std::fs::create_dir_all(&mod_dir)?;
-
-    if root.join("data").is_dir() {
-        copy_dir_recursive(root, &mod_dir)?;
-    } else if looks_like_bare_data(root, game_dir) {
-        copy_dir_recursive(root, &mod_dir.join("data"))?;
-    } else {
-        place_files_by_name(root, game_dir, &mod_dir)?;
-    }
-
-    let manifest = mods::Manifest {
-        id,
-        name: name.clone(),
-        author,
-        assets: mods::ManifestAssets {
-            auto_override: true,
-            ..Default::default()
-        },
-        ..mods::default_manifest()
-    };
-    mods::write_manifest(&mod_dir.join("manifest.json"), &manifest)?;
-
-    Ok(name)
 }
 
 fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResult<()> {
@@ -359,68 +264,100 @@ fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResul
     Ok(())
 }
 
-fn install_single(
+fn install_rebuilt(
     archive_path: &Path,
     root: &Path,
     game_dir: &Path,
     mods_dir: &Path,
     metadata: Option<&ModMetadata>,
 ) -> AppResult<String> {
-    if root.join("manifest.json").exists() {
-        return install_native(root, mods_dir);
+    let name = metadata
+        .map(|m| m.name.clone())
+        .unwrap_or_else(|| mod_name_from_archive(archive_path));
+    let id = metadata
+        .map(|m| mods::sanitize_id(&m.id))
+        .unwrap_or_else(|| mods::sanitize_id(&name));
+    let author = metadata
+        .map(|m| m.author.clone())
+        .unwrap_or_else(|| "Unknown".into());
+    let mod_dir = mods_dir.join(&id);
+
+    if mod_dir.exists() {
+        std::fs::remove_dir_all(&mod_dir)?;
     }
-    install_rebuilt(archive_path, root, game_dir, mods_dir, metadata)
+    std::fs::create_dir_all(&mod_dir)?;
+
+    if root.join("data").is_dir() {
+        copy_dir_recursive(root, &mod_dir)?;
+    } else if looks_like_bare_data(root, game_dir) {
+        copy_dir_recursive(root, &mod_dir.join("data"))?;
+    } else {
+        place_files_by_name(root, game_dir, &mod_dir)?;
+    }
+
+    let manifest = mods::Manifest {
+        id,
+        name: name.clone(),
+        author,
+        assets: mods::ManifestAssets {
+            auto_override: true,
+            ..Default::default()
+        },
+        ..mods::default_manifest()
+    };
+    mods::write_manifest(&mod_dir.join("manifest.json"), &manifest)?;
+
+    Ok(name)
 }
 
-fn do_install(
+// native as in already a jeode mod not DLL mods
+fn install_native(root: &Path, mods_dir: &Path) -> AppResult<String> {
+    let raw = std::fs::read_to_string(root.join("manifest.json"))?;
+    let manifest: mods::Manifest = serde_json::from_str(&raw).context("invalid manifest.json")?;
+
+    let id = mods::sanitize_id(&manifest.id);
+    let dest = mods_dir.join(&id);
+
+    if dest.exists() {
+        std::fs::remove_dir_all(&dest)?;
+    }
+    copy_dir_recursive(root, &dest)?;
+
+    Ok(manifest.name)
+}
+
+pub fn install(
     archive_path: &Path,
     game_dir: &Path,
-    staging: &Path,
     metadata: Option<&ModMetadata>,
 ) -> AppResult<InstallResult> {
-    extract(archive_path, staging)?;
+    let staging = StagingDir::new()?;
+    Archive::from_path(archive_path)?.extract(archive_path, staging.path())?;
+
     let mods_dir = game_dir.join("mods");
     std::fs::create_dir_all(&mods_dir)?;
 
-    let roots = find_mod_roots(staging);
+    let roots = find_mod_roots(staging.path())?;
     let total = roots.len();
     let mut installed = Vec::new();
     let mut errors = Vec::new();
 
     for root in &roots {
-        match install_single(archive_path, root, game_dir, &mods_dir, metadata) {
+        let result = if root.join("manifest.json").exists() {
+            install_native(root, &mods_dir)
+        } else {
+            install_rebuilt(archive_path, root, game_dir, &mods_dir, metadata)
+        };
+        match result {
             Ok(name) => installed.push(name),
             Err(e) => errors.push(e.to_string()),
         }
     }
 
-    let error = if errors.is_empty() {
-        None
-    } else {
-        Some(errors.join("; "))
-    };
-
+    let error = (!errors.is_empty()).then(|| errors.join("; "));
     Ok(InstallResult {
         installed,
         total,
         error,
     })
-}
-
-pub fn install(archive_path: &Path, game_dir: &Path) -> AppResult<InstallResult> {
-    let staging = unique_staging_path()?;
-    let result = do_install(archive_path, game_dir, &staging, None);
-    let _ = std::fs::remove_dir_all(&staging);
-    result
-}
-
-pub fn install_with_metadata(
-    archive_path: &Path,
-    game_dir: &Path,
-    metadata: &ModMetadata,
-) -> AppResult<InstallResult> {
-    let staging = unique_staging_path()?;
-    let result = do_install(archive_path, game_dir, &staging, Some(metadata));
-    let _ = std::fs::remove_dir_all(&staging);
-    result
 }

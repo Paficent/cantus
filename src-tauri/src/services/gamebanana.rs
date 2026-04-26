@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::{AppError, AppResult, Context};
 
 const API_BASE: &str = "https://gamebanana.com/apiv11";
 const MSM_GAME_ID: u32 = 9640;
@@ -323,14 +323,14 @@ pub async fn download_to_temp(file_id: u64, file_name: &str) -> AppResult<std::p
         )));
     }
 
-    let temp_dir = std::env::temp_dir().join("cantus/downloads");
+    let temp_dir = std::env::temp_dir().join("cantus").join("downloads");
     std::fs::create_dir_all(&temp_dir)?;
 
     let dest = temp_dir.join(file_name);
     let bytes = response.bytes().await?;
     tokio::fs::write(&dest, &bytes)
         .await
-        .map_err(|e| AppError::from(format!("Failed to write download: {e}")))?;
+        .context("failed to write download")?;
 
     Ok(dest)
 }

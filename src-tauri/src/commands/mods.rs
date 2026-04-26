@@ -1,7 +1,7 @@
 use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
-use crate::errors::AppError;
+use crate::errors::{AppError, Context};
 use crate::services::mods::{self, ModInfo};
 use crate::state::AppState;
 
@@ -36,8 +36,8 @@ pub async fn remove_mod(id: String, state: State<'_, AppState>) -> Result<(), Ap
 pub async fn open_mod_folder(id: String, state: State<'_, AppState>) -> Result<(), AppError> {
     let dir = game_dir(&state)?;
     let mod_path = mods::mod_folder_path(&dir, &id)?;
-    tauri_plugin_opener::reveal_item_in_dir(&mod_path)
-        .map_err(|e| AppError::from(format!("Failed to open mod folder: {e}")))
+    tauri_plugin_opener::reveal_item_in_dir(&mod_path).context("failed to open mod folder")?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -71,7 +71,7 @@ pub async fn install_mod(
             let path = file_path
                 .into_path()
                 .map_err(|_| AppError::from("Invalid file path selected"))?;
-            let result = crate::services::installer::install(&path, &dir)?;
+            let result = crate::services::installer::install(&path, &dir, None)?;
             Ok(Some(result))
         }
         None => Ok(None),

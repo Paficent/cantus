@@ -1,5 +1,3 @@
-//TODO: rename this to just jeode watcher
-
 use std::ffi::OsStr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,10 +52,13 @@ pub fn start(app: tauri::AppHandle, jeode_dir: PathBuf) -> AppResult<()> {
             let now = Instant::now();
 
             let touches_log = event.paths.iter().any(|p| p.file_name() == Some(log_name));
-            let touches_settings =
-                event.paths.iter().any(|p| p.file_name() == Some(settings_name));
+            let touches_settings = event
+                .paths
+                .iter()
+                .any(|p| p.file_name() == Some(settings_name));
 
-            if touches_log && now.duration_since(last_log_emit) >= Duration::from_millis(DEBOUNCE_MS)
+            if touches_log
+                && now.duration_since(last_log_emit) >= Duration::from_millis(DEBOUNCE_MS)
             {
                 last_log_emit = now;
                 let _ = app.emit("log-changed", ());

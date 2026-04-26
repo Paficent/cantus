@@ -2,7 +2,7 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::{AppError, AppResult, Context};
 
 const GITHUB_LATEST: &str = "https://api.github.com/repos/Paficent/jeode/releases/latest";
 const USER_AGENT: &str = "cantus/0.1.0";
@@ -48,7 +48,7 @@ pub async fn install(game_dir: &Path) -> AppResult<()> {
         .send()
         .await?
         .error_for_status()
-        .map_err(|e| AppError::from(format!("GitHub API request failed: {e}")))?
+        .context("GitHub API request failed")?
         .json()
         .await?;
 
@@ -64,7 +64,7 @@ pub async fn install(game_dir: &Path) -> AppResult<()> {
             .send()
             .await?
             .error_for_status()
-            .map_err(|e| AppError::from(format!("Download failed for {}: {e}", target.asset_name)))?
+            .with_context(|| format!("download failed for {}", target.asset_name))?
             .bytes()
             .await?;
 

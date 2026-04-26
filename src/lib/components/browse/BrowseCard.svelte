@@ -11,7 +11,7 @@
         RefreshCw,
     } from "lucide-svelte";
     import type { BrowseMod } from "$lib/types/browse";
-    import { open } from "@tauri-apps/api/shell";
+    import { openUrl } from "@tauri-apps/plugin-opener";
 
     interface Props {
         mod: BrowseMod;
@@ -26,8 +26,8 @@
         return n.toString();
     }
 
-    function openMod() {
-        open(`https://gamebanana.com/mods/${mod.id}`);
+    async function openMod() {
+        await openUrl(`https://gamebanana.com/mods/${mod.id}`);
     }
 
     function timeAgo(ts: number): string {
@@ -48,14 +48,19 @@
 </script>
 
 <Card.Root class="relative pt-0 transition-colors hover:border-foreground/20">
-    <div class="relative">
-        <img
-            src={mod.screenshot}
-            alt={mod.name}
-            class="cursor-pointer"
-            loading="lazy"
-            on:click={openMod}
-        />
+    <div class="relative w-full aspect-video overflow-hidden">
+        <button
+            type="button"
+            class="cursor-pointer border-0 bg-transparent p-0 m-0 block"
+            onclick={() => openMod()}
+        >
+            <img
+                src={mod.screenshot}
+                alt={mod.name}
+                loading="lazy"
+                class="object-cover"
+            />
+        </button>
         <div class="absolute top-2 left-2">
             <Badge
                 variant="secondary"
@@ -67,7 +72,9 @@
     </div>
 
     <Card.Header>
-        <Card.Title class="truncate" on:click={openMod}>{mod.name}</Card.Title>
+        <Card.Title class="truncate" onclick={() => openMod()}
+            >{mod.name}</Card.Title
+        >
         <Card.Description>{mod.author}</Card.Description>
     </Card.Header>
 

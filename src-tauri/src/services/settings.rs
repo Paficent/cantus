@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
-use crate::errors::{AppError, AppResult};
+use crate::errors::{AppResult, Context};
 
 const SETTINGS_FILE: &str = "config.json";
 
@@ -41,7 +41,7 @@ fn settings_path(app: &tauri::AppHandle) -> AppResult<PathBuf> {
     let dir = app
         .path()
         .app_config_dir()
-        .map_err(|e| AppError::from(format!("Failed to resolve config directory: {e}")))?;
+        .context("failed to resolve config directory")?;
     Ok(dir.join(SETTINGS_FILE))
 }
 
@@ -52,11 +52,8 @@ pub fn load(app: &tauri::AppHandle) -> AppResult<Settings> {
         return Ok(Settings::default());
     }
 
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| AppError::from(format!("Failed to read settings: {e}")))?;
-
-    serde_json::from_str(&content)
-        .map_err(|e| AppError::from(format!("Failed to parse settings: {e}")))
+    let content = std::fs::read_to_string(&path).context("failed to read settings")?;
+    serde_json::from_str(&content).context("failed to parse settings")
 }
 
 pub fn save(app: &tauri::AppHandle, settings: &Settings) -> AppResult<()> {
@@ -125,11 +122,9 @@ pub fn load_jeode(game_dir: &Path) -> AppResult<JeodeSettings> {
         return Ok(JeodeSettings::default());
     }
 
-    let content = std::fs::read_to_string(&path)
-        .map_err(|e| AppError::from(format!("Failed to read jeode settings: {e}")))?;
+    let content = std::fs::read_to_string(&path).context("failed to read jeode settings")?;
 
-    serde_json::from_str(&content)
-        .map_err(|e| AppError::from(format!("Failed to parse jeode settings: {e}")))
+    serde_json::from_str(&content).context("failed to parse jeode settings")
 }
 
 pub fn save_jeode(game_dir: &Path, settings: &JeodeSettings) -> AppResult<()> {

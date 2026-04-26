@@ -55,7 +55,7 @@ pub async fn browse_install_mod(
         author: mod_author,
     };
 
-    let result = crate::services::installer::install_with_metadata(&archive_path, &dir, &metadata);
+    let result = crate::services::installer::install(&archive_path, &dir, Some(&metadata));
     let _ = std::fs::remove_file(&archive_path);
     result
 }

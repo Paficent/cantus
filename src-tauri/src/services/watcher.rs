@@ -5,7 +5,7 @@ use std::time::Duration;
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use tauri::Emitter;
 
-use crate::errors::AppResult;
+use crate::errors::{AppResult, Context};
 
 static WATCHING: AtomicBool = AtomicBool::new(false);
 
@@ -22,11 +22,11 @@ pub fn start(app: tauri::AppHandle, mods_dir: PathBuf) -> AppResult<()> {
         tx,
         notify::Config::default().with_poll_interval(Duration::from_secs(2)),
     )
-    .map_err(|e| crate::errors::AppError::from(format!("Failed to create watcher: {e}")))?;
+    .context("failed to create watcher")?;
 
     watcher
         .watch(&mods_dir, RecursiveMode::Recursive)
-        .map_err(|e| crate::errors::AppError::from(format!("Failed to watch mods folder: {e}")))?;
+        .context("failed to watch mods folder")?;
 
     std::thread::spawn(move || {
         let _watcher = watcher;

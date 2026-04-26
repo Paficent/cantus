@@ -1,6 +1,6 @@
 use tauri::State;
 
-use crate::errors::AppError;
+use crate::errors::{AppError, Context};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -17,10 +17,7 @@ pub async fn read_log_file(state: State<'_, AppState>) -> Result<String, AppErro
     match tokio::fs::read(&log_path).await {
         Ok(bytes) => Ok(String::from_utf8_lossy(&bytes).into_owned()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(String::new()),
-        Err(e) => Err(AppError::from(format!(
-            "Failed to read {}: {e}",
-            log_path.display()
-        ))),
+        Err(e) => Err(e).with_context(|| format!("failed to read {}", log_path.display())),
     }
 }
 
@@ -37,5 +34,5 @@ pub async fn watch_log_file(
         .ok_or_else(|| AppError::from("Game directory not set"))?;
 
     let jeode_dir = dir.join("jeode");
-    crate::services::log_watcher::start(app, jeode_dir)
+    crate::services::jeodewatcher::start(app, jeode_dir)
 }
