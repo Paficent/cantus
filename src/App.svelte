@@ -6,6 +6,7 @@
     import LogsTab from "$lib/components/tabs/LogsTab.svelte";
     import SettingsTab from "$lib/components/tabs/SettingsTab.svelte";
     import Onboarding from "$lib/components/onboarding/Onboarding.svelte";
+    import UpdateDialog from "$lib/components/UpdateDialog.svelte";
     import { Toaster } from "$lib/components/ui/sonner";
     import { navStore } from "$lib/stores/nav.svelte";
     import { setupStore } from "$lib/stores/setup.svelte";
@@ -42,3 +43,4 @@
 {/if}
 
 <Toaster richColors />
+<UpdateDialog />

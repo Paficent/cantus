@@ -10,6 +10,7 @@ class UpdaterStore {
   installing = $state(false);
   downloaded = $state(0);
   totalBytes = $state(0);
+  dialogOpen = $state(false);
 
   private initialized = false;
 
@@ -17,6 +18,12 @@ class UpdaterStore {
     this.totalBytes > 0
       ? Math.round((this.downloaded / this.totalBytes) * 100)
       : 0,
+  );
+
+  releaseUrl = $derived(
+    this.pending
+      ? `https://github.com/Paficent/cantus/releases/tag/v${this.pending.version}`
+      : null,
   );
 
   async init() {
@@ -36,6 +43,7 @@ class UpdaterStore {
     try {
       const update = await check();
       this.pending = update ?? null;
+      if (update) this.dialogOpen = true;
     } catch (e) {
       console.warn("Update check failed: ", e);
     }
@@ -49,7 +57,7 @@ class UpdaterStore {
       const update = await check();
       this.pending = update ?? null;
       if (update) {
-        toast.success(`Update available: v${update.version}`);
+        this.dialogOpen = true;
       } else {
         toast.info("You are up to date");
       }

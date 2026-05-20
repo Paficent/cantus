@@ -57,7 +57,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: cantus-v__VERSION__
+          tagName: v__VERSION__
           releaseName: "Cantus v__VERSION__"
           releaseBody: "Downloads are in the assets below."
           releaseDraft: true
