@@ -1,6 +1,7 @@
 <script lang="ts">
     import { navStore } from "$lib/stores/nav.svelte";
     import { modStore } from "$lib/stores/mods.svelte";
+    import { updaterStore } from "$lib/stores/updater.svelte";
     import Button from "$lib/components/ui/button/button.svelte";
     import {
         Puzzle,
@@ -9,6 +10,7 @@
         ScrollText,
         Play,
     } from "@lucide/svelte";
+    import logo from "$lib/assets/logo.png";
     import { invoke } from "@tauri-apps/api/core";
 
     const items = [
@@ -26,14 +28,17 @@
 <div class="w-[150px] border-r border-border flex flex-col bg-card shrink-0">
     <div class="px-4 py-4 border-b border-border">
         <div class="flex items-center gap-2.5">
-            <div
+            <img class="size-7 rounded-md" src={logo} />
+            <!-- <div
                 class="size-7 rounded-md bg-primary flex items-center justify-center"
             >
                 <span class="text-primary-foreground text-xs font-bold">C</span>
-            </div>
+            </div> -->
             <div>
                 <p class="text-sm font-medium leading-none">Cantus</p>
-                <p class="text-[10px] text-muted-foreground mt-0.5">meow</p>
+                <p class="text-[10px] text-muted-foreground mt-0.5">
+                    v{updaterStore.currentVersion || "?"}
+                </p>
             </div>
         </div>
     </div>
