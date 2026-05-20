@@ -59,7 +59,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Cantus v__VERSION__"
-          releaseBody: "Downloads are in the assets below."
+          releaseBody: "Cantus builds are in the assets section below. Make sure to download the correct Cantus build for your architecture and operating system."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
