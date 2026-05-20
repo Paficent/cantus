@@ -4,9 +4,10 @@
     import { openUrl } from "@tauri-apps/plugin-opener";
     import { Download } from "@lucide/svelte";
 
-    function openReleaseNotes(e: MouseEvent) {
+    function openRelease(e: MouseEvent) {
         e.preventDefault();
-        if (updaterStore.releaseUrl) openUrl(updaterStore.releaseUrl);
+        if (updaterStore.releaseUrl)
+            invoke("open_external_url", { url: updaterStore.releaseUrl });
     }
 
     function install() {
@@ -20,13 +21,16 @@
         <AlertDialog.Header>
             <AlertDialog.Title>Update available</AlertDialog.Title>
             <AlertDialog.Description>
-                Cantus v{updaterStore.pending?.version} is available
-                {#if updaterStore.currentVersion}
-                    (you're on v{updaterStore.currentVersion}){/if}. See the
-                <a
+                Cantus <a
                     href={updaterStore.releaseUrl ?? "#"}
-                    onclick={openReleaseNotes}>release notes</a
-                > or install now to update.
+                    onclick={openRelease}
+                >
+                    v{updaterStore.pending?.version}
+                </a>
+                is available
+                {#if updaterStore.currentVersion}
+                    (you're on v{updaterStore.currentVersion})
+                {/if}.
             </AlertDialog.Description>
         </AlertDialog.Header>
         <AlertDialog.Footer>

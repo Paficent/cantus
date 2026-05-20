@@ -3,7 +3,7 @@ mod errors;
 mod services;
 mod state;
 
-use commands::{browse, logs, mods, onboarding, settings};
+use commands::{browse, logs, mods, onboarding, opener, settings};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -36,6 +36,7 @@ pub fn run() {
             settings::write_jeode_settings,
             logs::read_log_file,
             logs::watch_log_file,
+            opener::open_external_url,
         ])
         .setup(|app| {
             if cfg!(debug_assertions) {

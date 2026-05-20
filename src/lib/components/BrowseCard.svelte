@@ -11,7 +11,7 @@
         RefreshCw,
     } from "@lucide/svelte";
     import type { BrowseMod } from "$lib/types/browse";
-    import { openUrl } from "@tauri-apps/plugin-opener";
+    import { invoke } from "@tauri-apps/api/core";
 
     let {
         mod,
@@ -47,7 +47,7 @@
         <button
             type="button"
             class="cursor-pointer border-0 bg-transparent p-0 m-0 block"
-            onclick={() => openUrl(url)}
+            onclick={() => invoke("open_external_url", { url })}
         >
             <img
                 src={mod.screenshot}
@@ -67,7 +67,9 @@
     </div>
 
     <Card.Header>
-        <Card.Title class="truncate" onclick={() => openUrl(url)}
+        <Card.Title
+            class="truncate"
+            onclick={() => invoke("open_external_url", { url })}
             >{mod.name}</Card.Title
         >
         <Card.Description>{mod.author}</Card.Description>

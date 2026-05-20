@@ -4,7 +4,7 @@ use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::errors::{AppError, Context};
-use crate::services::{game, jeode};
+use crate::services::{game, jeode, opener};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -84,7 +84,6 @@ const STEAM_LAUNCH_URL: &str = "steam://run/1419170";
 
 #[tauri::command]
 pub async fn launch_game() -> Result<(), AppError> {
-    tauri_plugin_opener::open_url(STEAM_LAUNCH_URL, None::<&str>)
-        .context("failed to launch game")?;
+    opener::open_url(STEAM_LAUNCH_URL).context("failed to launch game")?;
     Ok(())
 }
