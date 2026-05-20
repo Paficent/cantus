@@ -11,7 +11,7 @@
 
     const sortLabels: Record<SortOption, string> = {
         recent: "Recent",
-        newest: "Newest",
+        // newest: "Newest",
         updated: "Updated",
         popular: "Popular",
         downloads: "Downloads",
@@ -149,7 +149,7 @@
             </Select.Trigger>
             <Select.Content>
                 <Select.Item value="recent">Recent</Select.Item>
-                <Select.Item value="newest">Newest</Select.Item>
+                <!-- <Select.Item value="newest">Newest</Select.Item> -->
                 <Select.Item value="updated">Updated</Select.Item>
                 <Select.Item value="popular">Popular</Select.Item>
                 <Select.Item value="downloads">Downloads</Select.Item>
