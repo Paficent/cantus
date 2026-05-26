@@ -22,10 +22,10 @@ To install Cantus via the [GitHub releases](https://github.com/Paficent/cantus/l
 - Guided setup that locates your game directory and installs [Jeode](https://github.com/Paficent/jeode) if it's missing
 - Live list of all installed mods with buttons for toggling and removing each
 - Manual mod installation from `.zip`, `.7z`, and `.rar` archives
-- Search and install mods directly from [GameBanana](https://gamebanana.com/games/9640) in one-click
+- Search and install mods directly from [GameBanana](https://gamebanana.com/games/9640)
 - Jeode mod support and complete backwards compatibility with existing mods the game still supports
-- Settings tab that allows configuration of both [Jeode](https://github.com/Paficent/jeode) and Cantus
-- Live feed from the [Jeode](https://github.com/Paficent/jeode) loader via the logs tab
+- Settings tab that allows configuration of both Jeode and Cantus
+- Live feed from the Jeode loader via the logs tab
 - Cross-platform with a small binary and low RAM usage
 - Built-in auto-updater
 
