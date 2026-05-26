@@ -10,7 +10,7 @@ Cantus is a mod manager and installer for the PC version of [My Singing Monsters
 
 ## Installation
 
-Cantus should only be downloaded from the [GitHub releases](https://github.com/Paficent/cantus/latest) or the GameBanana page. All binaries are built by GitHub actions and signed for safety.
+Cantus should only be downloaded from the [GitHub releases](https://github.com/Paficent/cantus/releases/latest) or the GameBanana page. All binaries are built by GitHub actions and signed for safety.
 
 To install Cantus via the [GitHub releases](https://github.com/Paficent/cantus/latest) expand the assets tab and download the correct executable format for your architecture and operating system.
 
