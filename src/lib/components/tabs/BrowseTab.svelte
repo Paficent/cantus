@@ -2,11 +2,16 @@
     import Input from "$lib/components/ui/input/input.svelte";
     import { Skeleton } from "$lib/components/ui/skeleton";
     import * as Select from "$lib/components/ui/select";
+    import * as AlertDialog from "$lib/components/ui/alert-dialog";
     import BrowseCard from "$lib/components/BrowseCard.svelte";
     import { browseStore } from "$lib/stores/browse.svelte";
     import { Search, Globe } from "@lucide/svelte";
     import { toast } from "svelte-sonner";
-    import type { CategoryFilter, SortOption } from "$lib/types/browse";
+    import type {
+        BrowseMod,
+        CategoryFilter,
+        SortOption,
+    } from "$lib/types/browse";
     import type { InstallResult } from "$lib/types/mod";
 
     const sortLabels: Record<SortOption, string> = {
@@ -20,6 +25,7 @@
 
     let sentinel = $state<HTMLElement | null>(null);
     let timer: ReturnType<typeof setTimeout>;
+    let outdatedTarget = $state<BrowseMod | null>(null);
 
     function searchInput(e: Event) {
         const v = (e.currentTarget as HTMLInputElement).value;
@@ -50,13 +56,24 @@
         }
     }
 
-    async function install(id: number) {
+    async function install(id: number, ignoreOutdated = false) {
         try {
-            const result = await browseStore.install(id);
+            const result = await browseStore.install(id, ignoreOutdated);
+            if (result?.error === "outdated") {
+                outdatedTarget =
+                    browseStore.items.find((m) => m.id === id) ?? null;
+                return;
+            }
             if (result) installToast(result);
         } catch (e) {
             toast.error("Installation failed", { description: String(e) });
         }
+    }
+
+    async function confirmOutdated() {
+        const target = outdatedTarget;
+        outdatedTarget = null;
+        if (target) install(target.id, true);
     }
 
     $effect(() => {
@@ -202,3 +219,27 @@
         {/if}
     </div>
 </div>
+
+<AlertDialog.Root
+    open={outdatedTarget !== null}
+    onOpenChange={(open) => {
+        if (!open) outdatedTarget = null;
+    }}
+>
+    <AlertDialog.Content>
+        <AlertDialog.Header>
+            <AlertDialog.Title>Potentially Outdated Mod</AlertDialog.Title>
+            <AlertDialog.Description>
+                This mod hasn't been modified since the last BIN revision.
+                Installing this mod may cause issues or crash the game.
+                Continue?
+            </AlertDialog.Description>
+        </AlertDialog.Header>
+        <AlertDialog.Footer>
+            <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+            <AlertDialog.Action onclick={confirmOutdated}>
+                Install anyway
+            </AlertDialog.Action>
+        </AlertDialog.Footer>
+    </AlertDialog.Content>
+</AlertDialog.Root>
