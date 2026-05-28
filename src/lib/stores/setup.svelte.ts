@@ -39,6 +39,7 @@ class SetupStore {
         game_directory: this.gameDirectory || null,
         onboarding_complete: this.complete,
         show_nsfw: false,
+        convert_images: false,
         theme: "dark",
       },
     });
