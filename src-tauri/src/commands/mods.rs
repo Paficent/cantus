@@ -71,7 +71,9 @@ pub async fn install_mod(
             let path = file_path
                 .into_path()
                 .map_err(|_| AppError::from("Invalid file path selected"))?;
-            let result = crate::services::installer::install(&path, &dir, None)?;
+            let settings = crate::services::settings::load(&app)?;
+            let result =
+                crate::services::installer::install(&path, &dir, None, settings.convert_images)?;
             Ok(Some(result))
         }
         None => Ok(None),

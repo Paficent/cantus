@@ -163,5 +163,22 @@
                     settingsStore.updateCantus("show_nsfw", v)}
             />
         </div>
+
+        <div class="h-px bg-border"></div>
+
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <p class="text-sm font-medium">Convert images to AVIF</p>
+                <p class="text-xs text-muted-foreground mt-0.5">
+                    Converts JPG/PNG pictures to AVIF when installing non-jeode
+                    mods. May break BIN mods.
+                </p>
+            </div>
+            <Switch
+                checked={settingsStore.cantus.convert_images}
+                onCheckedChange={(v) =>
+                    settingsStore.updateCantus("convert_images", v)}
+            />
+        </div>
     </Card.Content>
 </Card.Root>

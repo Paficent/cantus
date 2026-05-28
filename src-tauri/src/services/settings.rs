@@ -18,6 +18,9 @@ pub struct Settings {
     #[serde(default)]
     pub show_nsfw: bool,
 
+    #[serde(default)]
+    pub convert_images: bool,
+
     #[serde(default = "default_theme")]
     pub theme: String,
 }
@@ -32,6 +35,7 @@ impl Default for Settings {
             game_directory: None,
             onboarding_complete: false,
             show_nsfw: false,
+            convert_images: false,
             theme: default_theme(),
         }
     }

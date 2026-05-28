@@ -115,6 +115,19 @@ fn copy_file_creating_parents(src: &Path, dest: &Path) -> AppResult<()> {
     Ok(())
 }
 
+fn convert_to_avif(src: &Path, dest: &Path) -> AppResult<()> {
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let img = image::open(src).context("failed to read image")?;
+    let mut out = std::fs::File::create(dest)?;
+    img.write_with_encoder(image::codecs::avif::AvifEncoder::new_with_speed_quality(
+        &mut out, 4, 90,
+    ))
+    .context("avif conversion failed")?;
+    Ok(())
+}
+
 fn collect_files(dir: &Path) -> AppResult<Vec<PathBuf>> {
     if !dir.is_dir() {
         return Ok(Vec::new());
@@ -218,7 +231,12 @@ fn looks_like_bare_data(mod_root: &Path, game_dir: &Path) -> bool {
     hits > 0 && hits * 2 >= subdirs.len()
 }
 
-fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResult<()> {
+fn place_files_by_name(
+    root: &Path,
+    game_dir: &Path,
+    mod_dir: &Path,
+    convert: bool,
+) -> AppResult<()> {
     let game_data = game_dir.join("data");
     let index = build_file_index(&game_data)?;
     let mut matched_any = false;
@@ -243,7 +261,18 @@ fn place_files_by_name(root: &Path, game_dir: &Path, mod_dir: &Path) -> AppResul
                 .unwrap_or("");
             let avif_name = format!("{stem}.avif");
             if let Some(rel) = index.get(&avif_name).and_then(|v| v.first()) {
-                copy_file_creating_parents(file, &mod_dir.join("data").join(rel))?;
+                if convert {
+                    convert_to_avif(file, &mod_dir.join("data").join(rel))?;
+                } else {
+                    let dir = match rel.parent() {
+                        Some(parent) => mod_dir.join("data").join(parent),
+                        None => mod_dir.join("data"),
+                    };
+                    copy_file_creating_parents(
+                        file,
+                        &dir.join(file.file_name().unwrap_or_default()),
+                    )?;
+                }
                 matched_any = true;
                 continue;
             }
@@ -270,6 +299,7 @@ fn install_rebuilt(
     game_dir: &Path,
     mods_dir: &Path,
     metadata: Option<&ModMetadata>,
+    convert: bool,
 ) -> AppResult<String> {
     let name = metadata
         .map(|m| m.name.clone())
@@ -292,7 +322,7 @@ fn install_rebuilt(
     } else if looks_like_bare_data(root, game_dir) {
         copy_dir_recursive(root, &mod_dir.join("data"))?;
     } else {
-        place_files_by_name(root, game_dir, &mod_dir)?;
+        place_files_by_name(root, game_dir, &mod_dir, convert)?;
     }
 
     let manifest = mods::Manifest {
@@ -330,6 +360,7 @@ pub fn install(
     archive_path: &Path,
     game_dir: &Path,
     metadata: Option<&ModMetadata>,
+    convert: bool,
 ) -> AppResult<InstallResult> {
     let staging = StagingDir::new()?;
     Archive::from_path(archive_path)?.extract(archive_path, staging.path())?;
@@ -346,7 +377,7 @@ pub fn install(
         let result = if root.join("manifest.json").exists() {
             install_native(root, &mods_dir)
         } else {
-            install_rebuilt(archive_path, root, game_dir, &mods_dir, metadata)
+            install_rebuilt(archive_path, root, game_dir, &mods_dir, metadata, convert)
         };
         match result {
             Ok(name) => installed.push(name),

@@ -39,6 +39,7 @@ use crate::services::installer::InstallResult;
 
 #[tauri::command]
 pub async fn browse_install_mod(
+    app: tauri::AppHandle,
     mod_id: u64,
     mod_name: String,
     mod_author: String,
@@ -55,7 +56,13 @@ pub async fn browse_install_mod(
         author: mod_author,
     };
 
-    let result = crate::services::installer::install(&archive_path, &dir, Some(&metadata));
+    let settings = crate::services::settings::load(&app)?;
+    let result = crate::services::installer::install(
+        &archive_path,
+        &dir,
+        Some(&metadata),
+        settings.convert_images,
+    );
     let _ = std::fs::remove_file(&archive_path);
     result
 }

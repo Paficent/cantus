@@ -2,6 +2,7 @@ export interface CantusSettings {
   game_directory: string | null;
   onboarding_complete: boolean;
   show_nsfw: boolean;
+  convert_images: boolean;
   theme: "dark" | "light";
 }
 

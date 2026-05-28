@@ -11,6 +11,7 @@ class SettingsStore {
     game_directory: null,
     onboarding_complete: false,
     show_nsfw: false,
+    convert_images: false,
     theme: "dark",
   });
 
