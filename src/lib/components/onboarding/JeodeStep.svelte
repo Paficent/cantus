@@ -6,6 +6,7 @@
         Loader2,
         XCircle,
         ChevronLeft,
+        ChevronRight,
         Download,
         RefreshCw,
     } from "@lucide/svelte";
@@ -83,9 +84,14 @@
                     Try again
                 </Button>
             {:else if status === "installed"}
-                <Button onclick={() => setupStore.finishOnboarding()}>
-                    Finish setup
-                    <CheckCircle2 class="size-3.5" />
+                <Button onclick={() => setupStore.continueFromJeode()}>
+                    {#if setupStore.protonNeeded}
+                        Continue
+                        <ChevronRight class="size-3.5" />
+                    {:else}
+                        Finish setup
+                        <CheckCircle2 class="size-3.5" />
+                    {/if}
                 </Button>
             {/if}
         </div>

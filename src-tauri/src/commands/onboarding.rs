@@ -4,7 +4,7 @@ use tauri::State;
 use tauri_plugin_dialog::DialogExt;
 
 use crate::errors::{AppError, Context};
-use crate::services::{game, jeode, opener};
+use crate::services::{game, jeode, opener, proton};
 use crate::state::AppState;
 
 #[tauri::command]
@@ -78,6 +78,16 @@ pub async fn check_jeode_installed(game_dir: String) -> Result<bool, AppError> {
 #[tauri::command]
 pub async fn install_jeode(game_dir: String) -> Result<(), AppError> {
     jeode::install(&PathBuf::from(game_dir)).await
+}
+
+#[tauri::command]
+pub async fn proton_step_needed(game_dir: String) -> Result<bool, AppError> {
+    Ok(proton::step_needed(&PathBuf::from(game_dir)))
+}
+
+#[tauri::command]
+pub async fn apply_proton_override(game_dir: String) -> Result<(), AppError> {
+    proton::apply_winhttp_override(&PathBuf::from(game_dir))
 }
 
 const STEAM_LAUNCH_URL: &str = "steam://run/1419170";

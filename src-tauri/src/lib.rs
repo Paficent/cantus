@@ -20,6 +20,8 @@ pub fn run() {
             onboarding::validate_game_directory,
             onboarding::check_jeode_installed,
             onboarding::install_jeode,
+            onboarding::proton_step_needed,
+            onboarding::apply_proton_override,
             onboarding::launch_game,
             mods::list_mods,
             mods::toggle_mod,

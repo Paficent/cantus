@@ -2,16 +2,14 @@
     import { setupStore } from "$lib/stores/setup.svelte";
     import GameStep from "./GameStep.svelte";
     import JeodeStep from "./JeodeStep.svelte";
+    import ProtonStep from "./ProtonStep.svelte";
+    import logo from "$lib/assets/logo.png";
 </script>
 
 <div class="flex h-screen items-center justify-center select-none">
     <div class="w-full max-w-md">
         <div class="mb-6 flex items-center gap-2.5">
-            <div
-                class="size-8 rounded-md bg-primary flex items-center justify-center"
-            >
-                <span class="text-primary-foreground text-sm font-bold">C</span>
-            </div>
+            <img class="size-8 rounded-md" src={logo} />
             <div>
                 <p class="text-sm font-medium leading-none">Cantus</p>
                 <p class="text-[10px] text-muted-foreground mt-0.5">
@@ -33,12 +31,22 @@
                         ? 'bg-primary'
                         : 'bg-muted'}"
                 ></div>
+                {#if setupStore.protonNeeded}
+                    <div
+                        class="h-1 flex-1 rounded-full {setupStore.step ===
+                        'proton'
+                            ? 'bg-primary'
+                            : 'bg-muted'}"
+                    ></div>
+                {/if}
             </div>
 
             {#if setupStore.step === "directory"}
                 <GameStep />
             {:else if setupStore.step === "jeode"}
                 <JeodeStep />
+            {:else if setupStore.step === "proton"}
+                <ProtonStep />
             {/if}
         </div>
     </div>

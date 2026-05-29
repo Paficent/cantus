@@ -1,5 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { OnboardingStep, JeodeStatus } from "$lib/types/setup";
+import type {
+  OnboardingStep,
+  JeodeStatus,
+  ProtonStatus,
+} from "$lib/types/setup";
 
 function applyTheme(theme: string) {
   document.documentElement.classList.toggle("dark", theme !== "light");
@@ -11,6 +15,8 @@ class SetupStore {
   directoryValid = $state(false);
   validating = $state(false);
   jeodeStatus = $state<JeodeStatus>("unknown");
+  protonNeeded = $state(false);
+  protonStatus = $state<ProtonStatus>("idle");
   complete = $state(false);
   error = $state("");
   loaded = $state(false);
@@ -39,7 +45,6 @@ class SetupStore {
         game_directory: this.gameDirectory || null,
         onboarding_complete: this.complete,
         show_nsfw: false,
-        convert_images: false,
         theme: "dark",
       },
     });
@@ -93,6 +98,7 @@ class SetupStore {
         gameDir: this.gameDirectory,
       });
       this.jeodeStatus = installed ? "installed" : "not_installed";
+      if (installed) await this.refreshProton();
     } catch (e) {
       this.jeodeStatus = "not_installed";
       this.error = String(e);
@@ -105,10 +111,49 @@ class SetupStore {
     try {
       await invoke("install_jeode", { gameDir: this.gameDirectory });
       this.jeodeStatus = "installed";
+      await this.refreshProton();
     } catch (e) {
       this.jeodeStatus = "install_failed";
       this.error = String(e);
     }
+  }
+
+  async refreshProton() {
+    try {
+      this.protonNeeded = await invoke<boolean>("proton_step_needed", {
+        gameDir: this.gameDirectory,
+      });
+    } catch (e) {
+      this.protonNeeded = false;
+      console.error(e);
+    }
+  }
+
+  async continueFromJeode() {
+    if (this.protonNeeded) {
+      this.protonStatus = "idle";
+      this.error = "";
+      this.step = "proton";
+    } else {
+      await this.finishOnboarding();
+    }
+  }
+
+  async applyProtonOverride() {
+    this.protonStatus = "applying";
+    this.error = "";
+    try {
+      await invoke("apply_proton_override", { gameDir: this.gameDirectory });
+      this.protonStatus = "applied";
+      await this.finishOnboarding();
+    } catch (e) {
+      this.protonStatus = "failed";
+      this.error = String(e);
+    }
+  }
+
+  async skipProton() {
+    await this.finishOnboarding();
   }
 
   async finishOnboarding() {
@@ -120,6 +165,10 @@ class SetupStore {
     if (this.step === "jeode") {
       this.step = "directory";
       this.jeodeStatus = "unknown";
+    } else if (this.step === "proton") {
+      this.step = "jeode";
+      this.protonStatus = "idle";
+      this.error = "";
     }
   }
 }
