@@ -1,6 +1,6 @@
 [package]
 name = "Cantus"
-version = "0.1.2"
+version = "0.1.3"
 description = "Mod Manager for My Singing Monsters PC"
 authors = ["Paficent"]
 license = "MIT"
