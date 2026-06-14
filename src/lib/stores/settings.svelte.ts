@@ -17,7 +17,7 @@ class SettingsStore {
 
   jeode = $state<JeodeSettings>({
     last_update_check: 0,
-    overlays_enabled: true,
+    ui_visible_on_startup: false,
     debug: false,
     allow_unsafe_functions: false,
     suppress_native_warnings: false,

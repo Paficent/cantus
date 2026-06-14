@@ -78,8 +78,8 @@ pub struct JeodeSettings {
     #[serde(default)]
     pub last_update_check: u64,
 
-    #[serde(default = "default_true")]
-    pub overlays_enabled: bool,
+    #[serde(default = "default_false")]
+    pub ui_visible_on_startup: bool,
 
     #[serde(default)]
     pub debug: bool,
@@ -94,7 +94,7 @@ pub struct JeodeSettings {
     pub toggle_key: String,
 }
 
-fn default_true() -> bool {
+fn default_false() -> bool {
     true
 }
 
@@ -106,7 +106,7 @@ impl Default for JeodeSettings {
     fn default() -> Self {
         Self {
             last_update_check: 0,
-            overlays_enabled: true,
+            ui_visible_on_startup: false,
             debug: false,
             allow_unsafe_functions: false,
             suppress_native_warnings: false,

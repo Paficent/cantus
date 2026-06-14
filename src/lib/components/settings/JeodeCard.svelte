@@ -71,15 +71,15 @@
     <Card.Content class="space-y-4">
         <div class="flex items-center justify-between gap-4">
             <div>
-                <p class="text-sm font-medium">Overlays enabled</p>
+                <p class="text-sm font-medium">UIs Visible on Startup</p>
                 <p class="text-xs text-muted-foreground mt-0.5">
-                    Show the in-game overlay
+                    Whether Jeode mods with custom UIs are shown immediately
                 </p>
             </div>
             <Switch
-                checked={settingsStore.jeode.overlays_enabled}
+                checked={settingsStore.jeode.ui_visible_on_startup}
                 onCheckedChange={(v) =>
-                    settingsStore.updateJeode("overlays_enabled", v)}
+                    settingsStore.updateJeode("ui_visible_on_startup", v)}
             />
         </div>
 

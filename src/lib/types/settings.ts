@@ -8,7 +8,7 @@ export interface CantusSettings {
 
 export interface JeodeSettings {
   last_update_check: number;
-  overlays_enabled: boolean;
+  ui_visible_on_startup: boolean;
   debug: boolean;
   allow_unsafe_functions: boolean;
   suppress_native_warnings: boolean;
